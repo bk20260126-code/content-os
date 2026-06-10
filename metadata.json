@@ -1,0 +1,8 @@
+{
+  "name": "Content OS",
+  "description": "A simple content operating system to turn external references into publish-ready social content.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
