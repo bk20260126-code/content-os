@@ -2,14 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AppState } from '@/lib/types';
 import {
   db, supabaseConfigured,
-  sourceToRow, rowToSource, draftToRow, rowToDraft,
-  proofToRow, rowToProof, runToRow, rowToRun,
-  profileToRow, rowToProfile,
+  rowToSource, rowToDraft, rowToProof, rowToRun, rowToProfile,
 } from '@/lib/db';
+import { clearAppState, upsertAppState } from '@/lib/state-persistence';
+import { hasPersistedState } from '@/lib/state-policy';
 
 /**
  * GET  /api/state — load full AppState from Supabase (null if DB is empty: first run)
- * PUT  /api/state — persist full AppState (upsert all rows, delete removed rows)
+ * PUT  /api/state — upsert AppState without inferring destructive deletes
+ * DELETE /api/state — explicitly clear all persisted state
  *
  * The browser never talks to Supabase directly — keys stay server-side.
  */
@@ -32,8 +33,9 @@ export async function GET() {
     }
     if (profile.error) throw new Error(profile.error.message);
 
-    const empty = (sources.data?.length ?? 0) === 0 && (drafts.data?.length ?? 0) === 0;
-    if (empty) return NextResponse.json({ state: null });
+    if (!hasPersistedState(sources.data, drafts.data, proofs.data, runs.data, profile.data)) {
+      return NextResponse.json({ state: null });
+    }
 
     const state: AppState = {
       schemaVersion: 1,
@@ -57,45 +59,22 @@ export async function PUT(req: NextRequest) {
     const state = (await req.json()) as AppState;
     const client = db();
 
-    // 1. Upsert parents first (FK order), then children.
-    if (state.sources.length) {
-      const { error } = await client.from('sources').upsert(state.sources.map(sourceToRow));
-      if (error) throw new Error(`sources upsert: ${error.message}`);
-    }
-    if (state.drafts.length) {
-      const { error } = await client.from('drafts').upsert(state.drafts.map(draftToRow));
-      if (error) throw new Error(`drafts upsert: ${error.message}`);
-    }
-    if (state.proofs.length) {
-      const { error } = await client.from('proofs').upsert(state.proofs.map(proofToRow));
-      if (error) throw new Error(`proofs upsert: ${error.message}`);
-    }
-    if (state.runs.length) {
-      const { error } = await client.from('runs').upsert(state.runs.map(runToRow));
-      if (error) throw new Error(`runs upsert: ${error.message}`);
-    }
-    if (state.profile) {
-      const { error } = await client.from('creator_profile').upsert(profileToRow(state.profile));
-      if (error) throw new Error(`profile upsert: ${error.message}`);
-    }
-
-    // 2. Delete rows that no longer exist in the payload (children first, then parents).
-    const deleteRemoved = async (table: string, keepIds: string[]) => {
-      const { data, error } = await client.from(table).select('id');
-      if (error) throw new Error(`${table} select: ${error.message}`);
-      const removed = (data ?? []).map((r: { id: string }) => r.id).filter(id => !keepIds.includes(id));
-      if (removed.length) {
-        const { error: delError } = await client.from(table).delete().in('id', removed);
-        if (delError) throw new Error(`${table} delete: ${delError.message}`);
-      }
-    };
-    await deleteRemoved('runs', state.runs.map(r => r.id));
-    await deleteRemoved('proofs', state.proofs.map(p => p.id));
-    await deleteRemoved('drafts', state.drafts.map(d => d.id));
-    await deleteRemoved('sources', state.sources.map(s => s.id));
+    await upsertAppState(client, state);
 
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'DB write failed' }, { status: 500 });
+  }
+}
+
+export async function DELETE() {
+  if (!supabaseConfigured()) {
+    return NextResponse.json({ error: 'Supabase not configured' }, { status: 501 });
+  }
+  try {
+    await clearAppState(db());
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : 'DB clear failed' }, { status: 500 });
   }
 }

@@ -4,8 +4,8 @@
  * Backends:
  *  - LocalStorageStore: browser-only fallback.
  *  - ApiStore (default when NEXT_PUBLIC_STORE_BACKEND=supabase): talks to /api/state,
- *    which persists to Supabase server-side. Includes one-time migration of existing
- *    localStorage data, and falls back to localStorage if the server is unreachable.
+ *    which persists to Supabase server-side and falls back to its local mirror if the
+ *    server is unreachable. Loading an empty cloud never writes local data implicitly.
  *
  * All UI code must depend on `ContentStore` only, never on localStorage directly.
  */
@@ -54,7 +54,7 @@ class LocalStorageStore implements ContentStore {
   }
 }
 
-class ApiStore implements ContentStore {
+export class ApiStore implements ContentStore {
   private local = new LocalStorageStore();
 
   async load(): Promise<AppState | null> {
@@ -66,12 +66,7 @@ class ApiStore implements ContentStore {
         await this.local.save(state); // keep local mirror as offline backup
         return state;
       }
-      // DB empty (first run): one-time migration from localStorage if present
-      const localState = await this.local.load();
-      if (localState) {
-        await this.save(localState);
-        return localState;
-      }
+      // DB empty: stay empty. Migration/import must always be an explicit user action.
       return null;
     } catch {
       // Server/DB unreachable — degrade to local mirror so the app still opens
@@ -98,7 +93,15 @@ class ApiStore implements ContentStore {
 
   async clear(): Promise<void> {
     await this.local.clear();
-    await this.save(emptyState());
+    try {
+      const res = await fetch('/api/state', { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.warn('[storage] cloud clear failed:', data.error || res.status);
+      }
+    } catch (e) {
+      console.warn('[storage] cloud clear failed (offline?):', e);
+    }
   }
 }
 
