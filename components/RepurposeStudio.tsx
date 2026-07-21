@@ -173,9 +173,9 @@ export function RepurposeStudio({ sources, drafts, setDrafts, selectedSourceId, 
 
   if (!activeSource) {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-center">
+      <div className="workspace-readable flex flex-col items-center justify-center h-[60vh] text-center">
         <div className="font-serif text-[2rem] text-ed-muted opacity-40 italic mb-3">승급된 소스가 없습니다</div>
-        <p className="text-[13px] text-ed-muted leading-relaxed max-w-[340px] mb-6">
+        <p className="text-[13px] text-ed-muted leading-relaxed max-w-md mb-6">
           제작은 승급된 소스에서 시작합니다. 2단계 채점에서 소스를 평가하고 기준을 충족하면 승급하세요.
         </p>
         <button onClick={() => onNavigate('scoring')} className="px-6 py-3 bg-ed-ink text-white font-semibold text-[0.85rem] hover:bg-black transition-colors">
@@ -186,8 +186,8 @@ export function RepurposeStudio({ sources, drafts, setDrafts, selectedSourceId, 
   }
 
   return (
-    <div className="flex gap-0 h-[calc(100vh-6rem)] animate-in fade-in slide-in-from-bottom-2 duration-500 -mt-8 -mx-8 relative -top-8 h-[calc(100vh)]">
-      <div className="w-[320px] bg-[#fafafa] border-r border-ed-border flex flex-col pt-8">
+    <div className="workspace-readable flex gap-0 h-[calc(100vh-6rem)] animate-in fade-in slide-in-from-bottom-2 duration-500 -mt-8 -mx-8 xl:-mt-10 xl:-mx-10 relative -top-8 xl:-top-10 h-[calc(100vh)]">
+      <div className="w-[360px] bg-[#fafafa] border-r border-ed-border flex flex-col pt-8">
         <div className="px-6 mb-4">
           <h3 className="text-[10px] text-ed-muted uppercase tracking-widest">승급된 소스 분석 대상</h3>
         </div>
@@ -252,7 +252,7 @@ export function RepurposeStudio({ sources, drafts, setDrafts, selectedSourceId, 
 
         {activeDraft ? (
           <div className="flex-1 overflow-y-auto flex">
-            <div className="w-2/3 p-12 border-r border-ed-border space-y-6">
+            <div className="w-2/3 p-12 xl:p-14 border-r border-ed-border space-y-8">
               <div>
                 <label className="block text-[10px] text-ed-muted uppercase tracking-widest mb-2 border-b border-ed-border pb-1">Hook (도입부)</label>
                 <textarea rows={2} value={activeDraft.content.hook} onChange={e => updateDraftField('hook', e.target.value)} className="w-full border-none p-0 text-[14px] focus:outline-none bg-transparent hover:bg-[#fafafa] transition-colors resize-none leading-relaxed text-ed-ink" />

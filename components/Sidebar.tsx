@@ -16,35 +16,35 @@ export function Sidebar({ currentView, setCurrentView }: SidebarProps) {
   ] as const;
 
   return (
-    <aside className="w-[240px] bg-white border-r border-ed-border flex flex-col h-screen pt-8 px-6 pb-8">
+    <aside className="w-[272px] bg-white border-r border-ed-border flex flex-col h-screen pt-10 px-7 pb-8">
       <div className="mb-10 flex flex-col items-start gap-0">
-        <h1 className="text-2xl font-serif font-bold italic tracking-tight text-ed-ink text-left leading-none">Content OS</h1>
+        <h1 className="text-[1.75rem] font-serif font-bold italic tracking-tight text-ed-ink text-left leading-none">Content OS</h1>
       </div>
       <nav className="flex-1 flex flex-col space-y-1">
         {navItems.map((item) => (
           <button
             key={item.id}
             onClick={() => setCurrentView(item.id)}
-            className={`w-full flex items-start gap-3 py-3 px-0 border-b transition-colors text-left ${
+            className={`w-full flex items-start gap-3 py-4 px-0 border-b transition-colors text-left ${
               currentView === item.id
                 ? 'text-ed-ink border-ed-ink'
                 : 'text-ed-muted border-transparent hover:text-ed-ink'
             }`}
           >
-            <span className={`shrink-0 w-5 h-5 mt-[1px] flex items-center justify-center text-[10px] font-semibold border rounded-full ${
+            <span className={`shrink-0 w-7 h-7 flex items-center justify-center text-xs font-semibold border rounded-full ${
               currentView === item.id ? 'border-ed-ink text-ed-ink' : 'border-ed-border text-ed-muted'
             } ${item.step ? '' : 'opacity-0'}`}>{item.step || '·'}</span>
             <span className="flex flex-col">
-              <span className="font-medium text-[0.9rem] leading-tight">{item.label}</span>
-              <span className="text-[10px] text-ed-muted mt-0.5">{item.desc}</span>
+              <span className="font-semibold text-base leading-tight">{item.label}</span>
+              <span className="text-[13px] leading-relaxed text-ed-muted mt-1">{item.desc}</span>
             </span>
           </button>
         ))}
       </nav>
       <div className="mt-auto">
         <div className="bg-[#fafafa] border text-left border-ed-border p-4">
-          <span className="text-[10px] text-ed-muted uppercase tracking-widest font-sans block mb-2">작동 흐름</span>
-          <p className="text-[11px] text-ed-ink leading-relaxed">
+          <span className="text-xs text-ed-muted uppercase tracking-widest font-sans block mb-2">작동 흐름</span>
+          <p className="text-[13px] text-ed-ink leading-relaxed">
             수집 → 채점 → 제작 → 발행.<br />
             증거 없는 글은 발행되지 않습니다.
           </p>

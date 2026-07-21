@@ -71,7 +71,7 @@ export default function Page() {
     <div className="flex h-screen w-full bg-ed-bg text-ed-ink font-sans">
       <Sidebar currentView={currentView} setCurrentView={setCurrentView} />
       <main className="flex-1 flex flex-col h-screen overflow-y-auto">
-        <div className="flex-1 w-full max-w-6xl mx-auto p-8 relative">
+        <div className="flex-1 w-full max-w-[1440px] mx-auto p-8 xl:p-10 relative">
           {currentView === 'dashboard' && <Dashboard sources={sources} drafts={drafts} onNavigate={navigateTo} />}
           {currentView === 'library' && <SourceLibrary sources={sources} setSources={setSources} onNavigate={navigateTo} />}
           {currentView === 'scoring' && <Scoring sources={sources} setSources={setSources} selectedSourceId={selectedSourceId} onNavigate={navigateTo} />}

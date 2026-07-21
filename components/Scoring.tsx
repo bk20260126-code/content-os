@@ -49,9 +49,9 @@ export function Scoring({ sources, setSources, selectedSourceId, onNavigate }: S
 
   if (!activeSource) {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-center">
+      <div className="workspace-readable flex flex-col items-center justify-center h-[60vh] text-center">
         <div className="font-serif text-[2rem] text-ed-muted opacity-40 italic mb-3">채점할 소스가 없습니다</div>
-        <p className="text-[13px] text-ed-muted leading-relaxed max-w-[320px] mb-6">
+        <p className="text-[13px] text-ed-muted leading-relaxed max-w-md mb-6">
           1단계 수집에서 소스를 먼저 등록하세요. 등록된 소스가 이곳에 나타나면 AI 채점을 요청할 수 있습니다.
         </p>
         <button onClick={() => onNavigate('library')} className="px-6 py-3 bg-ed-ink text-white font-semibold text-[0.85rem] hover:bg-black transition-colors">
@@ -117,9 +117,9 @@ export function Scoring({ sources, setSources, selectedSourceId, onNavigate }: S
   const sc = s.score;
 
   return (
-    <div className="flex gap-0 h-[calc(100vh-6rem)] animate-in fade-in slide-in-from-bottom-2 duration-500 -mt-8 -mx-8 relative -top-8 h-[calc(100vh)]">
+    <div className="workspace-readable flex gap-0 h-[calc(100vh-6rem)] animate-in fade-in slide-in-from-bottom-2 duration-500 -mt-8 -mx-8 xl:-mt-10 xl:-mx-10 relative -top-8 xl:-top-10 h-[calc(100vh)]">
       {/* Left List */}
-      <div className="w-[320px] bg-[#fafafa] border-r border-ed-border flex flex-col overflow-hidden h-[100vh] pt-8">
+      <div className="w-[360px] bg-[#fafafa] border-r border-ed-border flex flex-col overflow-hidden h-[100vh] pt-8">
         <div className="px-6 mb-4">
           <h3 className="text-[10px] text-ed-muted uppercase tracking-widest">최근 수집된 소스</h3>
         </div>
@@ -141,7 +141,7 @@ export function Scoring({ sources, setSources, selectedSourceId, onNavigate }: S
       </div>
 
       {/* Right Details */}
-      <div className="flex-1 flex flex-col bg-white overflow-y-auto h-[100vh] pt-8 p-12">
+      <div className="flex-1 flex flex-col bg-white overflow-y-auto h-[100vh] pt-8 p-12 xl:p-14">
         <div className="mb-8">
           <h2 className="font-serif text-3xl font-semibold mb-2">{s.title}</h2>
           <p className="text-[14px] text-ed-muted">{s.type} • <a href={s.url} target="_blank" rel="noreferrer" className="text-ed-ink hover:underline border-b border-ed-muted pb-[1px]">{s.url || 'URL 없음'}</a></p>

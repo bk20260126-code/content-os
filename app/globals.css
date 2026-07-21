@@ -13,3 +13,57 @@
   --font-serif: var(--font-serif);
   --font-mono: var(--font-mono);
 }
+
+@layer base {
+  html {
+    font-size: 16px;
+  }
+
+  body {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+}
+
+/* Dense editor screens use a shared readability floor while keeping the
+   existing editorial hierarchy and compact controls intact. */
+.workspace-readable .text-\[10px\] {
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.workspace-readable .text-\[11px\] {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.workspace-readable .text-\[12px\] {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.workspace-readable .text-\[13px\] {
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.workspace-readable .text-\[14px\],
+.workspace-readable .text-sm {
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+.workspace-readable .text-\[0\.8rem\] {
+  font-size: 0.875rem;
+}
+
+.workspace-readable .text-\[0\.85rem\] {
+  font-size: 0.9375rem;
+}
