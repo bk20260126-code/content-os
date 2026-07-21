@@ -41,24 +41,24 @@ export function Dashboard({ sources, drafts, onNavigate }: DashboardProps) {
   ];
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <header className="h-[70px] border-b border-ed-border flex items-center justify-between -mx-8 px-8 bg-white -mt-8 mb-8 sticky top-0 z-10">
+    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <header className="h-[78px] border-b border-ed-border flex items-center justify-between -mx-8 px-8 xl:-mx-10 xl:px-10 bg-white -mt-8 xl:-mt-10 mb-8 sticky top-0 z-10">
         <div>
-          <h2 className="text-[1.2rem] font-bold text-ed-ink tracking-tight">대시보드</h2>
+          <h2 className="text-2xl font-bold text-ed-ink tracking-tight">대시보드</h2>
         </div>
-        <p className="text-[11px] text-ed-muted">수집 → 채점 → 제작 → 발행 · 증거 없는 글은 발행되지 않습니다</p>
+        <p className="text-sm leading-relaxed text-ed-muted">수집 → 채점 → 제작 → 발행 · 증거 없는 글은 발행되지 않습니다</p>
       </header>
 
       {/* 다음 할 일 — 항상 단 하나의 행동을 안내 */}
-      <div className="border-2 border-ed-ink bg-white p-8 flex items-center justify-between gap-8">
+      <div className="border-2 border-ed-ink bg-white p-9 flex items-center justify-between gap-8">
         <div>
-          <span className="text-[10px] text-ed-accent uppercase tracking-widest font-semibold">다음 할 일</span>
-          <h3 className="font-serif text-2xl font-semibold text-ed-ink mt-2 mb-1">{nextAction.title}</h3>
-          <p className="text-[13px] text-ed-muted leading-relaxed max-w-xl">{nextAction.desc}</p>
+          <span className="text-xs text-ed-accent uppercase tracking-widest font-semibold">다음 할 일</span>
+          <h3 className="font-serif text-[2rem] leading-tight font-semibold text-ed-ink mt-3 mb-2">{nextAction.title}</h3>
+          <p className="text-base text-ed-muted leading-relaxed max-w-2xl">{nextAction.desc}</p>
         </div>
         <button
           onClick={() => onNavigate(nextAction.view)}
-          className="shrink-0 px-8 py-4 bg-ed-ink text-white font-semibold text-[0.9rem] hover:bg-black transition-colors whitespace-nowrap"
+          className="shrink-0 min-h-12 px-8 py-4 bg-ed-ink text-white font-semibold text-base hover:bg-black transition-colors whitespace-nowrap"
         >
           {nextAction.cta} →
         </button>
@@ -70,14 +70,14 @@ export function Dashboard({ sources, drafts, onNavigate }: DashboardProps) {
           <button
             key={step.n}
             onClick={() => onNavigate(step.view)}
-            className="p-5 text-left hover:bg-[#fafafa] transition-colors group"
+            className="p-6 text-left hover:bg-[#fafafa] transition-colors group"
           >
             <div className="flex items-center gap-2 mb-3">
-              <span className="w-5 h-5 flex items-center justify-center text-[10px] font-semibold border border-ed-ink rounded-full text-ed-ink">{step.n}</span>
-              <span className="text-[12px] font-semibold text-ed-ink group-hover:text-ed-accent transition-colors">{step.label}</span>
+              <span className="w-7 h-7 flex items-center justify-center text-xs font-semibold border border-ed-ink rounded-full text-ed-ink">{step.n}</span>
+              <span className="text-[15px] font-semibold text-ed-ink group-hover:text-ed-accent transition-colors">{step.label}</span>
             </div>
-            <div className="font-serif text-3xl font-semibold leading-none text-ed-ink mb-1">{step.count}<span className="text-[11px] font-sans font-normal text-ed-muted ml-1">{step.unit}</span></div>
-            <p className="text-[10px] text-ed-muted">{step.desc}</p>
+            <div className="font-serif text-4xl font-semibold leading-none text-ed-ink mb-2">{step.count}<span className="text-[13px] font-sans font-normal text-ed-muted ml-2">{step.unit}</span></div>
+            <p className="text-[13px] leading-relaxed text-ed-muted">{step.desc}</p>
           </button>
         ))}
       </div>
@@ -85,23 +85,23 @@ export function Dashboard({ sources, drafts, onNavigate }: DashboardProps) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
         <div className="border border-ed-border bg-white p-6">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xs text-ed-muted uppercase tracking-widest">최근 수집된 소스</h3>
-            <button onClick={() => onNavigate('library')} className="text-[10px] text-ed-ink uppercase tracking-widest font-semibold hover:underline">모두 보기→</button>
+            <h3 className="text-sm text-ed-muted uppercase tracking-widest">최근 수집된 소스</h3>
+            <button onClick={() => onNavigate('library')} className="text-xs text-ed-ink uppercase tracking-widest font-semibold hover:underline">모두 보기→</button>
           </div>
           <div className="space-y-2">
             {sources.slice(0, 3).map(source => (
               <div key={source.id} className="p-4 border-b border-ed-border bg-white cursor-pointer transition-colors hover:border-ed-ink group" onClick={() => onNavigate('scoring', source.id)}>
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                     <span className={`px-2 py-0.5 text-[11px] font-semibold uppercase rounded-sm ${
+                     <span className={`px-2 py-1 text-xs font-semibold uppercase rounded-sm ${
                         source.status === 'Promoted' ? 'bg-[#e6f4ea] text-[#2d6a4f]' :
                         source.status === 'Inbox' ? 'bg-[#eee] text-[#666]' :
                         source.status === 'Scored' ? 'bg-[#e0f2fe] text-[#0369a1]' :
                         'bg-[#f3e8ff] text-[#7e22ce]'
                      }`}>{source.status}</span>
                   </div>
-                  <p className="text-[14px] font-semibold text-ed-ink leading-[1.4] mb-1 group-hover:text-ed-accent transition-colors">{source.title}</p>
-                  <p className="text-[11px] text-ed-muted">{source.type}</p>
+                  <p className="text-base font-semibold text-ed-ink leading-relaxed mb-1 group-hover:text-ed-accent transition-colors">{source.title}</p>
+                  <p className="text-[13px] text-ed-muted">{source.type}</p>
                 </div>
               </div>
             ))}
@@ -110,8 +110,8 @@ export function Dashboard({ sources, drafts, onNavigate }: DashboardProps) {
 
         <div className="border border-ed-border bg-white p-6">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xs text-ed-muted uppercase tracking-widest">블락된 초안</h3>
-            <button onClick={() => onNavigate('pipeline')} className="text-[10px] text-ed-ink uppercase tracking-widest font-semibold hover:underline">파이프라인 가기→</button>
+            <h3 className="text-sm text-ed-muted uppercase tracking-widest">블락된 초안</h3>
+            <button onClick={() => onNavigate('pipeline')} className="text-xs text-ed-ink uppercase tracking-widest font-semibold hover:underline">파이프라인 가기→</button>
           </div>
           <div className="space-y-2">
             {drafts.filter(d => !d.proof.exists).slice(0, 3).map(draft => {
@@ -119,10 +119,10 @@ export function Dashboard({ sources, drafts, onNavigate }: DashboardProps) {
               return (
                 <div key={draft.id} className="p-4 border-b border-ed-border bg-white cursor-pointer transition-colors hover:border-ed-ink group" onClick={() => onNavigate('repurpose', draft.sourceId)}>
                   <div className="flex justify-between items-start w-full mb-1">
-                    <span className="px-2 py-0.5 text-[11px] font-semibold uppercase rounded-sm bg-[#fef3c7] text-[#b45309]">Blocked</span>
+                    <span className="px-2 py-1 text-xs font-semibold uppercase rounded-sm bg-[#fef3c7] text-[#b45309]">Blocked</span>
                   </div>
-                  <p className="text-[14px] font-semibold text-ed-ink leading-[1.4] mb-1 group-hover:text-ed-accent transition-colors">{src?.title || 'Unknown Source'}</p>
-                  <p className="text-[11px] text-ed-muted">{draft.platform} · 필요: {draft.proof.type}</p>
+                  <p className="text-base font-semibold text-ed-ink leading-relaxed mb-1 group-hover:text-ed-accent transition-colors">{src?.title || 'Unknown Source'}</p>
+                  <p className="text-[13px] text-ed-muted">{draft.platform} · 필요: {draft.proof.type}</p>
                 </div>
               )
             })}
