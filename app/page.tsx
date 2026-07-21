@@ -36,10 +36,13 @@ export default function Page() {
     });
   }, []);
 
-  // Persist on every change after hydration.
+  // Persist on change after hydration — debounced so typing doesn't hammer the network.
   useEffect(() => {
     if (!hydratedRef.current) return;
-    store.save({ ...emptyState(), sources, drafts });
+    const timer = setTimeout(() => {
+      store.save({ ...emptyState(), sources, drafts });
+    }, 800);
+    return () => clearTimeout(timer);
   }, [sources, drafts]);
 
   const navigateTo = (view: ViewState, sourceId?: string) => {
