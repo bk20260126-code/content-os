@@ -10,6 +10,7 @@ import { Pipeline } from '@/components/Pipeline';
 import { mockSources, mockDrafts } from '@/lib/mock-data';
 import { Source, Draft, AppState } from '@/lib/types';
 import { store, emptyState } from '@/lib/storage';
+import { shouldSeedMockData } from '@/lib/state-policy';
 
 export type ViewState = 'dashboard' | 'library' | 'scoring' | 'repurpose' | 'pipeline';
 
@@ -21,21 +22,22 @@ export default function Page() {
   const [hydrated, setHydrated] = useState(false);
   const hydratedRef = useRef(false);
   // Slices this UI doesn't edit yet (proofs/runs/profile — Phase 2). We round-trip
-  // whatever we loaded so a save never wipes them via PUT /api/state's reconcile-delete.
+  // whatever we loaded so saves round-trip the complete state.
   const extrasRef = useRef<Pick<AppState, 'proofs' | 'runs' | 'profile'>>({
     proofs: [],
     runs: [],
     profile: null,
   });
 
-  // Hydrate from persistence; seed with mock data on first run.
+  // Hydrate from persistence. Demo data is local-development-only and is never
+  // written into an empty cloud database.
   useEffect(() => {
     store.load().then((saved) => {
       if (saved) {
         setSources(saved.sources);
         setDrafts(saved.drafts);
         extrasRef.current = { proofs: saved.proofs, runs: saved.runs, profile: saved.profile };
-      } else {
+      } else if (shouldSeedMockData(process.env.NODE_ENV, process.env.NEXT_PUBLIC_STORE_BACKEND)) {
         setSources(mockSources);
         setDrafts(mockDrafts);
       }

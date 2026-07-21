@@ -15,6 +15,12 @@ View your app in AI Studio: https://ai.studio/apps/37e54598-b684-4bb7-b9c9-dcda9
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. Copy `.env.example` to `.env.local` and configure the required values.
+   Production requires `APP_ACCESS_USERNAME` and `APP_ACCESS_PASSWORD`; without
+   them the app fails closed. Supabase cloud storage additionally requires
+   `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and
+   `NEXT_PUBLIC_STORE_BACKEND=supabase`.
 3. Run the app:
    `npm run dev`
+
+Run the verification suite with `npm test`, `npm run lint`, and `npm run build`.

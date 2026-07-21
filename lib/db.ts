@@ -4,7 +4,7 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { AppState, Source, Draft, ProofAsset, ContentRun, CreatorProfile } from './types';
+import { Source, Draft, ProofAsset, ContentRun, CreatorProfile } from './types';
 
 /**
  * Server credential. Prefer the service_role key: the API route is the only, trusted
@@ -12,10 +12,10 @@ import { AppState, Source, Draft, ProofAsset, ContentRun, CreatorProfile } from 
  * permissive anon policies are dropped (migration v2, rls_lockdown), the service_role
  * key is REQUIRED — a leaked anon key can no longer touch any row.
  * SECRET: service_role grants full DB access — never expose it with a NEXT_PUBLIC_ prefix.
- * The anon key remains a fallback for the pre-v2 (world-open) state.
+ * There is intentionally no anon-key fallback: migration v2 denies anon access.
  */
 function serverKey(): string | undefined {
-  return process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  return process.env.SUPABASE_SERVICE_ROLE_KEY;
 }
 
 export function supabaseConfigured(): boolean {
@@ -27,7 +27,7 @@ export function db(): SupabaseClient {
   const key = serverKey();
   if (!url || !key) {
     throw new Error(
-      'Supabase is not configured (need SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY)',
+      'Supabase is not configured (need SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY)',
     );
   }
   return createClient(url, key, { auth: { persistSession: false } });

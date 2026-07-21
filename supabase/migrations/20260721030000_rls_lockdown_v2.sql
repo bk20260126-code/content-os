@@ -1,6 +1,6 @@
 -- Content OS schema v2 — RLS lockdown (issue 3)
 --
--- The server API route (app/api/state) now authenticates with the service_role key,
+-- The access-controlled server API route (app/api/state) uses the service_role key,
 -- which bypasses RLS. Direct anon access is therefore no longer needed, so we drop the
 -- permissive "mvp_anon_all_*" policies from v1. After this, a leaked anon key can read
 -- or write NOTHING — with RLS enabled and no policies, the anon/authenticated roles are
