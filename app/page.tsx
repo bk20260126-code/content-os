@@ -8,7 +8,7 @@ import { Scoring } from '@/components/Scoring';
 import { RepurposeStudio } from '@/components/RepurposeStudio';
 import { Pipeline } from '@/components/Pipeline';
 import { mockSources, mockDrafts } from '@/lib/mock-data';
-import { Source, Draft } from '@/lib/types';
+import { Source, Draft, AppState } from '@/lib/types';
 import { store, emptyState } from '@/lib/storage';
 
 export type ViewState = 'dashboard' | 'library' | 'scoring' | 'repurpose' | 'pipeline';
@@ -20,6 +20,13 @@ export default function Page() {
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const hydratedRef = useRef(false);
+  // Slices this UI doesn't edit yet (proofs/runs/profile — Phase 2). We round-trip
+  // whatever we loaded so a save never wipes them via PUT /api/state's reconcile-delete.
+  const extrasRef = useRef<Pick<AppState, 'proofs' | 'runs' | 'profile'>>({
+    proofs: [],
+    runs: [],
+    profile: null,
+  });
 
   // Hydrate from persistence; seed with mock data on first run.
   useEffect(() => {
@@ -27,6 +34,7 @@ export default function Page() {
       if (saved) {
         setSources(saved.sources);
         setDrafts(saved.drafts);
+        extrasRef.current = { proofs: saved.proofs, runs: saved.runs, profile: saved.profile };
       } else {
         setSources(mockSources);
         setDrafts(mockDrafts);
@@ -37,10 +45,11 @@ export default function Page() {
   }, []);
 
   // Persist on change after hydration — debounced so typing doesn't hammer the network.
+  // Preserve the not-yet-edited slices (extrasRef) so persistence round-trips full state.
   useEffect(() => {
     if (!hydratedRef.current) return;
     const timer = setTimeout(() => {
-      store.save({ ...emptyState(), sources, drafts });
+      store.save({ ...emptyState(), ...extrasRef.current, sources, drafts });
     }, 800);
     return () => clearTimeout(timer);
   }, [sources, drafts]);
