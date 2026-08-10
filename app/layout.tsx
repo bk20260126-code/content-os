@@ -1,36 +1,26 @@
 import type {Metadata} from 'next';
-import { Inter, Space_Grotesk, JetBrains_Mono, Playfair_Display } from 'next/font/google';
+import { JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-sans',
-});
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ['latin'],
-  variable: '--font-head',
-});
-
+/* Typography follows the NeoFun brand: Gmarket Sans Bold for display, Pretendard
+   for body and UI. Both are declared in globals.css — Pretendard from CDN, Gmarket
+   Sans via local() only (the font file is not redistributable; see globals.css).
+   The previous Inter/Space Grotesk/Playfair stack belonged to the Button Lab
+   editorial system, which this app must not inherit. */
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-mono',
 });
 
-const playfair = Playfair_Display({
-  subsets: ['latin'],
-  variable: '--font-serif',
-});
-
 export const metadata: Metadata = {
   title: 'Content OS',
-  description: 'A simple content operating system to turn external references into publish-ready social content.',
+  description: '레퍼런스 하나를 증거가 붙은 발행 후보로 바꾸는 콘텐츠 운영 시스템.',
 };
 
 export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
-    <html lang="ko" className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} ${playfair.variable}`}>
-      <body className="font-sans text-ed-ink bg-ed-bg flex h-screen overflow-hidden" suppressHydrationWarning>
+    <html lang="ko" className={jetbrainsMono.variable}>
+      <body className="font-sans text-nf-ink bg-nf-paper flex h-screen overflow-hidden" suppressHydrationWarning>
         {children}
       </body>
     </html>

@@ -46,8 +46,16 @@ export interface Draft {
   };
   proof: {
     type: ProofType;
+    /**
+     * Derived, never toggled by hand: true only while `proofId` points at a
+     * ProofAsset still present in AppState.proofs. The publish gate depends on
+     * this flag, so letting a user flip it directly would make the gate
+     * decorative — the one thing this product must not be.
+     */
     exists: boolean;
     description: string;
+    /** Links to ProofAsset.id. Attaching real evidence is what opens the gate. */
+    proofId?: string;
   };
   brandVoiceGate: {
     founderAuthority: boolean;

@@ -1,16 +1,53 @@
 @import "tailwindcss";
+/* Pretendard — SIL Open Font License 1.1. Loaded from CDN; the local() sources in
+   the @font-face below win when the user already has it installed, so an offline
+   machine still renders correctly through the system fallback stack. */
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css');
+
+/* Gmarket Sans — NeoFun display typeface.
+   The font file is deliberately NOT bundled with this repository. Gmarket Sans is
+   free to use commercially but its licence does not clearly permit redistributing
+   the font files, and shipping them in a public repo would be redistribution.
+   We reference locally installed copies only. If the font is absent the display
+   stack falls through to Pretendard, which keeps the layout intact.
+   Install (free): https://corp.gmarket.com/fonts */
+@font-face {
+  font-family: 'Gmarket Sans Local';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: local('GmarketSansBold'), local('Gmarket Sans Bold'), local('GmarketSansTTFBold');
+}
+
+@font-face {
+  font-family: 'Gmarket Sans Local';
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: local('GmarketSansMedium'), local('Gmarket Sans Medium'), local('GmarketSansTTFMedium');
+}
 
 @theme {
-  --color-ed-bg: #F9F9F8;
-  --color-ed-ink: #1A1A1A;
-  --color-ed-muted: #717170;
-  --color-ed-accent: #E55C25;
-  --color-ed-border: #E5E5E3;
-  --color-ed-success: #2D6A4F;
-  --color-ed-warning: #F59E0B;
-  
-  --font-sans: var(--font-sans);
-  --font-serif: var(--font-serif);
+  /* NeoFun brand palette.
+     Canonical source: 02_products/neofun-community/AGENTS.md (Visual Rules).
+     This app does NOT inherit the Button Lab editorial system. */
+  --color-nf-paper: #F7F6F0;
+  --color-nf-ink: #151414;
+  --color-nf-muted: #6B665C;
+  --color-nf-primary: #3F6B1C;
+  --color-nf-border: #E3DFD3;
+  --color-nf-slate: #5F7782;
+  --color-nf-success: #3F6B1C;
+  --color-nf-warning: #B45309;
+
+  /* mark #FF5A36 is LOGO LOCKUP ONLY. It is visually hard to separate from
+     Button Lab Bloom Coral #FF3F01, so it must never become a page primary.
+     Deliberately not exposed as a utility colour — use nf-primary instead. */
+
+  --font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
+    'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
+  --font-display: 'Gmarket Sans Local', 'Pretendard Variable', Pretendard,
+    'Apple SD Gothic Neo', system-ui, sans-serif;
   --font-mono: var(--font-mono);
 }
 
@@ -24,6 +61,12 @@
     text-rendering: optimizeLegibility;
   }
 
+  /* Gmarket Sans is display-only. Body and UI text stay on Pretendard. */
+  h1, h2, h3, .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+
   button,
   input,
   select,
@@ -33,7 +76,7 @@
 }
 
 /* Dense editor screens use a shared readability floor while keeping the
-   existing editorial hierarchy and compact controls intact. */
+   existing hierarchy and compact controls intact. */
 .workspace-readable .text-\[10px\] {
   font-size: 0.75rem;
   line-height: 1.5;
