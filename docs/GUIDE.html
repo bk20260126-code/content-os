@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Content OS 사용 가이드</title>
+<style>
+  :root{
+    --paper:#F7F6F0; --ink:#151414; --muted:#6B665C;
+    --primary:#3F6B1C; --primary-soft:#E8F0DC; --border:#E3DFD3;
+    --card:#FFFFFF; --warn-bg:#FDF6E3; --warn-line:#D9C89A;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --paper:#151414; --ink:#F0EEE6; --muted:#9C968A;
+      --primary:#8FBF5F; --primary-soft:#26331A; --border:#2E2B24;
+      --card:#1D1B17; --warn-bg:#2A2416; --warn-line:#4A3F22;
+    }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;
+    font-size:17px; line-height:1.7; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:760px;margin:0 auto;padding:56px 20px 96px}
+  h1{font-size:2.3rem;line-height:1.2;margin:0 0 8px;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:1.05rem;margin:0 0 8px}
+  .rule{
+    background:var(--primary-soft); border-left:4px solid var(--primary);
+    padding:16px 18px; margin:28px 0 40px; border-radius:0 8px 8px 0;
+  }
+  .rule strong{display:block;font-size:1.1rem;margin-bottom:4px}
+  .rule span{color:var(--muted);font-size:.95rem}
+
+  .flow{display:flex;gap:8px;margin:0 0 44px;flex-wrap:wrap}
+  .flow div{
+    flex:1 1 120px; background:var(--card); border:1px solid var(--border);
+    border-radius:8px; padding:12px 14px; text-align:center;
+  }
+  .flow b{display:block;font-size:.95rem}
+  .flow small{color:var(--muted);font-size:.8rem}
+
+  .step{margin:0 0 44px}
+  .step-head{display:flex;align-items:baseline;gap:12px;margin-bottom:6px}
+  .num{
+    flex:0 0 auto; width:32px;height:32px;border-radius:50%;
+    background:var(--primary); color:#fff; font-weight:700; font-size:.95rem;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .step h2{font-size:1.35rem;margin:0;letter-spacing:-.01em}
+  .time{
+    margin-left:auto; flex:0 0 auto; color:var(--muted);
+    font-size:.8rem; border:1px solid var(--border); border-radius:99px; padding:2px 10px;
+    white-space:nowrap;
+  }
+  .step > p{margin:0 0 14px 44px}
+  .step .body{margin-left:44px}
+  @media (max-width:560px){ .step > p, .step .body{margin-left:0} }
+
+  pre{
+    background:var(--card); border:1px solid var(--border); border-radius:8px;
+    padding:14px 16px; overflow-x:auto; font-size:.9rem; line-height:1.6;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; margin:0 0 14px;
+  }
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em;
+    background:var(--primary-soft); padding:1px 6px; border-radius:4px}
+  pre code{background:none;padding:0}
+
+  ul,ol{margin:0 0 14px;padding-left:22px}
+  li{margin-bottom:6px}
+
+  .note{
+    background:var(--warn-bg); border:1px solid var(--warn-line);
+    border-radius:8px; padding:12px 16px; margin:0 0 14px; font-size:.95rem;
+  }
+  .note b{display:block;margin-bottom:2px}
+
+  .screen{
+    background:var(--card); border:1px solid var(--border); border-radius:10px;
+    padding:0; margin:0 0 16px; overflow:hidden;
+  }
+  .screen-bar{
+    background:var(--paper); border-bottom:1px solid var(--border);
+    padding:7px 12px; font-size:.75rem; color:var(--muted);
+    display:flex; align-items:center; gap:6px;
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--border);flex:0 0 auto}
+  .screen-body{padding:16px 18px}
+  .fieldrow{display:flex;justify-content:space-between;align-items:center;gap:10px;
+    padding:9px 0;border-bottom:1px dashed var(--border);font-size:.93rem}
+  .fieldrow:last-child{border-bottom:none}
+  .fieldrow span:first-child{color:var(--muted)}
+  .badge{
+    font-size:.72rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    padding:3px 9px; border-radius:99px; white-space:nowrap;
+  }
+  .badge.ok{background:var(--primary);color:#fff}
+  .badge.no{background:transparent;color:var(--muted);border:1px solid var(--border)}
+
+  table{width:100%;border-collapse:collapse;margin:0 0 14px;font-size:.93rem}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.82rem;text-transform:uppercase;letter-spacing:.04em}
+
+  h3{font-size:1.1rem;margin:36px 0 10px}
+  .check{list-style:none;padding-left:0}
+  .check li{padding-left:28px;position:relative}
+  .check li::before{
+    content:"";position:absolute;left:0;top:6px;width:15px;height:15px;
+    border:1.5px solid var(--primary);border-radius:3px;
+  }
+  hr{border:none;border-top:1px solid var(--border);margin:48px 0}
+  .foot{color:var(--muted);font-size:.88rem}
+  a{color:var(--primary)}
+  @media print{
+    body{background:#fff;color:#000;font-size:11pt}
+    .wrap{padding:0;max-width:none}
+    .step{break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Content OS 사용 가이드</h1>
+  <p class="sub">레퍼런스 하나를 증거가 붙은 발행 후보로 바꾸는 데까지, 처음부터 끝까지.</p>
+
+  <div class="rule">
+    <strong>규칙은 하나입니다. 증거 없는 글은 발행되지 않습니다.</strong>
+    <span>실제 자료를 붙이지 않으면 게이트가 열리지 않습니다. 체크박스를 다 켜도 안 열립니다.</span>
+  </div>
+
+  <div class="flow">
+    <div><b>1 수집</b><small>레퍼런스 담기</small></div>
+    <div><b>2 채점</b><small>쓸 만한지 판정</small></div>
+    <div><b>3 제작</b><small>초안 + 증명</small></div>
+    <div><b>4 발행</b><small>상태 관리</small></div>
+  </div>
+
+  <!-- 0 -->
+  <div class="step">
+    <div class="step-head"><div class="num">0</div><h2>설치하고 실행하기</h2><span class="time">5분</span></div>
+    <div class="body">
+      <p>다운로드한 폴더에서 터미널을 열고 두 줄을 칩니다.</p>
+      <pre><code>npm install
+npm run dev</code></pre>
+      <p>브라우저에서 <code>http://localhost:3000</code>을 엽니다. 끝입니다.</p>
+      <div class="note">
+        <b>가입도, 데이터베이스도, API 키도 필요 없습니다.</b>
+        처음 열면 연습용 데모 데이터가 들어 있습니다. 마음껏 눌러보세요. 데이터는 이 브라우저에만 저장됩니다.
+      </div>
+      <p><b>터미널을 켜 둔 채로</b> 쓰세요. 창을 닫으면 앱도 멈춥니다. 다시 쓰려면 <code>npm run dev</code>만 다시 치면 됩니다.</p>
+    </div>
+  </div>
+
+  <!-- 1 -->
+  <div class="step">
+    <div class="step-head"><div class="num">1</div><h2>레퍼런스 담기</h2><span class="time">2분</span></div>
+    <div class="body">
+      <p>왼쪽 <b>수집</b> → <b>+ 소스 추가</b>를 누릅니다. 세 칸만 채우면 됩니다.</p>
+      <div class="screen">
+        <div class="screen-bar"><span class="dot"></span>소스 라이브러리 — 새 소스 기록</div>
+        <div class="screen-body">
+          <div class="fieldrow"><span>제목</span><span>고객은 도구가 아니라 해결된 결과를 산다</span></div>
+          <div class="fieldrow"><span>유형</span><span>Customer call</span></div>
+          <div class="fieldrow"><span>Raw Notes</span><span>통화에서 반복된 말을 그대로 붙여넣기</span></div>
+          <div class="fieldrow"><span>URL</span><span style="color:var(--muted)">비워도 됩니다</span></div>
+        </div>
+      </div>
+      <div class="note">
+        <b>URL을 넣어도 내용이 자동으로 가져와지지 않습니다.</b>
+        핵심 문장과 본인이 관찰한 것을 <b>Raw Notes에 직접 붙여넣으세요.</b> 여기가 부실하면 이후 단계가 전부 부실해집니다.
+      </div>
+      <p>저장하면 <code>Inbox</code> 상태로 2단계에 나타납니다.</p>
+    </div>
+  </div>
+
+  <!-- 2 -->
+  <div class="step">
+    <div class="step-head"><div class="num">2</div><h2>채점하고 승급시키기</h2><span class="time">3분</span></div>
+    <div class="body">
+      <p>왼쪽 <b>채점 · 승급</b>으로 갑니다. <b>AI 채점 요청</b>을 누르면 30점 만점으로 점수와 이유가 나옵니다.</p>
+      <table>
+        <tr><th>보이는 것</th><th>뜻</th></tr>
+        <tr><td>총점 / 30</td><td>이 소스로 글을 쓸 가치가 있는가</td></tr>
+        <tr><td>증명 / 15</td><td>내가 증거를 댈 수 있는 이야기인가</td></tr>
+        <tr><td>권위 / 15</td><td>내가 직접 겪어서 말할 수 있는가</td></tr>
+      </table>
+      <p>AI 점수는 <b>추천일 뿐입니다.</b> 읽고 <b>적용</b>하거나 <b>무시</b>하세요. 적용한 뒤에도 직접 고칠 수 있습니다.</p>
+      <p>쓸 만하다고 판단되면 <b>제작으로 승급</b>을 누릅니다.</p>
+      <div class="note">
+        <b>AI 키가 없어도 됩니다.</b> 채점을 직접 입력하고 승급시키면 그대로 진행됩니다. AI는 도우미지 관문이 아닙니다.
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 -->
+  <div class="step">
+    <div class="step-head"><div class="num">3</div><h2>초안 쓰고 증명 붙이기</h2><span class="time">5분</span></div>
+    <div class="body">
+      <p><b>이 단계가 이 앱의 전부입니다.</b> 나머지는 여기로 오기 위한 준비입니다.</p>
+      <ol>
+        <li>왼쪽 <b>제작</b> → 채널(LinkedIn, Instagram …)을 고릅니다</li>
+        <li><b>AI 초안 생성</b>을 누릅니다. Hook, 본문, CTA가 채워집니다 — 전부 직접 고칠 수 있습니다</li>
+        <li>아래 <b>필요한 증명</b> 칸에서 <b>+ 새 증명 등록</b>을 누릅니다</li>
+      </ol>
+      <div class="screen">
+        <div class="screen-bar"><span class="dot"></span>제작 — 증명 첨부</div>
+        <div class="screen-body">
+          <div class="fieldrow"><span>제목</span><span>3주간 문의 응답 시간 로그</span></div>
+          <div class="fieldrow"><span>유형</span><span>before/after metric</span></div>
+          <div class="fieldrow"><span>이 자료가 보여주는 것</span><span>평균 응답이 6시간에서 40분으로 줄어든 기록</span></div>
+          <div class="fieldrow"><span>파일 경로 또는 링크</span><span style="color:var(--muted)">선택</span></div>
+        </div>
+      </div>
+      <div class="note">
+        <b>"이 자료가 보여주는 것"을 대충 쓰지 마세요.</b>
+        여기가 비면 증명이 아니라 주장입니다. 한두 문장이면 충분하지만 구체적이어야 합니다.
+      </div>
+      <p>등록하면 배지가 바뀌고 게이트가 열립니다.</p>
+      <table>
+        <tr><th>상태</th><th>게이트</th><th>발행</th></tr>
+        <tr><td><span class="badge no">증명 없음</span></td><td>Needs proof</td><td>안 됨</td></tr>
+        <tr><td><span class="badge ok">증명 있음</span></td><td>Ready for review</td><td>가능</td></tr>
+      </table>
+      <p>이미 등록한 증명은 <b>다른 초안에도 다시 붙일 수 있습니다.</b> 워크플로우 맵 하나로 LinkedIn 글과 Threads 글을 같이 받칠 수 있습니다.</p>
+      <div class="note">
+        <b>체크박스를 다 켜도 게이트는 열리지 않습니다.</b>
+        오른쪽 Brand Voice Gate 5개 항목은 글의 품질을 스스로 점검하는 용도입니다. 발행 여부를 가르는 것은 <b>실제로 붙은 자료</b>입니다.
+      </div>
+      <p>증명을 잘못 붙였다면 <b>떼어내기</b>를 누르세요. 게이트가 다시 닫힙니다.</p>
+    </div>
+  </div>
+
+  <!-- 4 -->
+  <div class="step">
+    <div class="step-head"><div class="num">4</div><h2>발행 상태 관리하기</h2><span class="time">1분</span></div>
+    <div class="body">
+      <p><b>리뷰 파이프라인으로 이동</b>을 누르면 4단계로 넘어갑니다. 여기서 상태만 옮기면 됩니다.</p>
+      <p><code>Draft</code> → <code>Review</code> → <code>Scheduled</code> → <code>Published</code></p>
+      <div class="note">
+        <b>이 앱은 대신 발행해주지 않습니다.</b>
+        글은 각 플랫폼에 직접 올리고, 여기서는 무엇이 어디까지 갔는지만 관리합니다.
+      </div>
+      <p>증명이 없는 초안은 목록에서 <b>BLOCKED</b>로 표시됩니다. 대시보드에서도 바로 보입니다.</p>
+    </div>
+  </div>
+
+  <hr>
+
+  <h3>첫 콘텐츠 완주 체크리스트</h3>
+  <ul class="check">
+    <li>소스 1개를 Raw Notes까지 채워서 저장했다</li>
+    <li>채점하고 <b>제작으로 승급</b>시켰다</li>
+    <li>채널 1개의 초안을 만들고 내 말로 고쳤다</li>
+    <li>실제 자료를 등록하고 <b>증명 있음</b>으로 바꿨다</li>
+    <li>게이트가 <b>Ready for review</b>가 됐다</li>
+  </ul>
+  <p>다섯 개를 다 채우면 이 앱을 쓸 줄 아는 것입니다. 약 15분 걸립니다.</p>
+
+  <h3>막히면</h3>
+  <table>
+    <tr><th>증상</th><th>원인과 해결</th></tr>
+    <tr><td>브라우저에 아무것도 안 뜬다</td><td>터미널이 꺼졌습니다. <code>npm run dev</code>를 다시 치세요.</td></tr>
+    <tr><td>AI 채점·초안이 실패한다</td><td>API 키가 없거나 잘못됐습니다. 템플릿 초안이 대신 만들어지니 직접 고쳐 쓰면 됩니다.</td></tr>
+    <tr><td>게이트가 안 열린다</td><td>증명을 붙이지 않았습니다. 3단계의 <b>+ 새 증명 등록</b>을 누르세요.</td></tr>
+    <tr><td>데이터가 사라졌다</td><td>브라우저 저장소를 지우면 같이 지워집니다. 여러 기기에서 쓰려면 README의 Supabase 설정을 보세요.</td></tr>
+    <tr><td>제목 글꼴이 달라 보인다</td><td>정상입니다. Gmarket Sans가 없으면 Pretendard로 표시됩니다.</td></tr>
+  </table>
+
+  <h3>선택 설정</h3>
+  <ul>
+    <li><b>AI 켜기</b> — Google AI Studio에서 무료 키를 받아 <code>.env.local</code>에 <code>GEMINI_API_KEY</code>로 넣습니다</li>
+    <li><b>여러 기기에서 쓰기</b> — 본인 Supabase 프로젝트를 연결합니다. README 참조</li>
+  </ul>
+  <p class="foot">둘 다 안 해도 앱은 완전히 동작합니다.</p>
+
+</div>
+</body>
+</html>

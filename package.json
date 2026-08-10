@@ -1,6 +1,8 @@
 {
-  "name": "ai-studio-applet",
+  "name": "content-os",
   "version": "0.1.0",
+  "description": "레퍼런스 하나를 증거가 붙은 발행 후보로 바꾸는 콘텐츠 운영 시스템",
+  "license": "MIT",
   "private": true,
   "scripts": {
     "dev": "next dev",
