@@ -1,107 +1,35 @@
-import React from 'react';
-import { Draft, DraftStatus } from '@/lib/types';
+import React, { useState } from 'react';
+import { Draft, DraftStatus, ProofAsset } from '@/lib/types';
 import { ViewState } from '@/app/page';
-
-interface PipelineProps {
-  drafts: Draft[];
-  setDrafts: React.Dispatch<React.SetStateAction<Draft[]>>;
-  onNavigate: (view: ViewState, sourceId?: string) => void;
-}
-
-const columns: { id: DraftStatus; label: string; color: string }[] = [
-  { id: 'Idea', label: '아이디어', color: 'bg-gray-100 text-gray-800' },
-  { id: 'Draft', label: '초안 작성 중', color: 'bg-blue-100 text-blue-800' },
-  { id: 'Review', label: '리뷰 대기', color: 'bg-purple-100 text-purple-800' },
-  { id: 'Scheduled', label: '발행 예정', color: 'bg-amber-100 text-amber-800' },
-  { id: 'Published', label: '발행 완료', color: 'bg-emerald-100 text-emerald-800' },
+import { gateProblems, reviewCurrent, revisionOf, safeWebUrl, transitionDraft } from '@/lib/workflow';
+const columns: { id: DraftStatus; label: string }[] = [
+  { id: 'Idea', label: '아이디어' }, { id: 'Draft', label: '초안' }, { id: 'Review', label: '검토 완료' },
+  { id: 'Scheduled', label: '발행 예정' }, { id: 'Published', label: '발행 기록' }, { id: 'Recycle', label: '재활용 대기' },
 ];
-
-export function Pipeline({ drafts, setDrafts, onNavigate }: PipelineProps) {
-  
-  const handleStatusChange = (draftId: string, newStatus: DraftStatus) => {
-    setDrafts(drafts.map(d => d.id === draftId ? { ...d, status: newStatus } : d));
-  };
-
-  if (drafts.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-center">
-        <div className="font-display text-[2rem] text-nf-muted opacity-40 mb-3">파이프라인이 비어 있습니다</div>
-        <p className="text-base text-nf-muted leading-relaxed max-w-md mb-6">
-          발행 관리는 초안에서 시작합니다. 3단계 제작에서 AI 초안을 생성하고 게이트를 통과시키세요.
-        </p>
-        <button onClick={() => onNavigate('repurpose')} className="min-h-11 px-6 py-3 bg-nf-ink text-white font-semibold text-[15px] hover:bg-black transition-colors">
-          ← 3단계 — 초안 만들러 가기
-        </button>
-      </div>
-    );
+interface Props { drafts: Draft[]; proofs: ProofAsset[]; setDrafts: React.Dispatch<React.SetStateAction<Draft[]>>; onNavigate: (view: ViewState, sourceId?: string, draftId?: string) => void }
+export function Pipeline({ drafts, proofs, setDrafts, onNavigate }: Props) {
+  const [publishing, setPublishing] = useState<string | null>(null);
+  const [url, setUrl] = useState(''), [confirmed, setConfirmed] = useState(false), [notice, setNotice] = useState('');
+  function move(draft: Draft, status: DraftStatus) {
+    const result = transitionDraft(draft, status, proofs, { published: confirmed, url });
+    if (result.error) { setNotice(result.error); return; }
+    setDrafts(prev => prev.map(d => d.id === draft.id ? transitionDraft(d, status, proofs, { published: confirmed, url }).draft : d));
+    setPublishing(null); setNotice('');
   }
-
-  return (
-    <div className="flex flex-col h-[calc(100vh-6rem)] animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <header className="h-[78px] border-b border-nf-border flex items-center justify-between -mx-8 px-8 xl:-mx-10 xl:px-10 bg-white -mt-8 xl:-mt-10 mb-8 sticky top-0 z-10">
-        <div>
-          <h2 className="text-2xl font-bold text-nf-ink tracking-tight">콘텐츠 파이프라인</h2>
-        </div>
-      </header>
-
-      <div className="flex-1 overflow-x-auto pb-4">
-        <div className="flex gap-4 h-full min-w-max">
-          {columns.map(col => {
-            const columnDrafts = drafts.filter(d => d.status === col.id);
-            return (
-              <div key={col.id} className="w-[300px] flex flex-col bg-[#fafafa] border border-nf-border rounded-none">
-                <div className="p-4 border-b border-nf-border flex justify-between items-center bg-white rounded-none">
-                  <span className="text-[13px] font-semibold text-nf-ink uppercase tracking-widest">{col.label}</span>
-                  <span className="text-[13px] font-display font-bold text-nf-muted">{columnDrafts.length}</span>
-                </div>
-                
-                <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                  {columnDrafts.map(draft => {
-                    const isBlocked = !draft.proof.exists && (draft.status === 'Draft' || draft.status === 'Review');
-                    return (
-                      <div key={draft.id} className="bg-white p-4 border border-nf-border hover:border-nf-ink transition-colors group relative rounded-none">
-                        <div className="flex justify-between items-start mb-3">
-                          <span className="text-xs font-mono text-nf-muted bg-[#eee] px-2 py-1 rounded-sm uppercase">{draft.platform}</span>
-                          <select 
-                            value={draft.status} 
-                            onChange={(e) => handleStatusChange(draft.id, e.target.value as DraftStatus)}
-                            className="text-xs bg-transparent text-nf-muted hover:text-nf-ink focus:outline-none cursor-pointer outline-none border-none opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-widest"
-                          >
-                            {columns.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-                          </select>
-                        </div>
-                        
-                        <p className="text-[15px] font-semibold text-nf-ink line-clamp-3 mb-2 leading-relaxed" title={draft.content.hook}>{draft.content.hook || '내용 없음'}</p>
-                        
-                        {isBlocked && (
-                          <div className="mt-3 text-xs text-[#b45309] bg-[#fef3c7] px-2 py-1 rounded-sm inline-flex font-semibold uppercase tracking-widest">
-                            Proof Needed
-                          </div>
-                        )}
-                        
-                        <div className="mt-4 pt-3 border-t border-nf-border flex justify-between items-center">
-                          <button 
-                            onClick={() => onNavigate('repurpose', draft.sourceId)}
-                            className="text-xs text-nf-ink font-semibold uppercase tracking-widest hover:underline"
-                          >
-                            스튜디오 &rarr;
-                          </button>
-                          <span className="text-[11px] text-nf-muted font-mono">{new Date(draft.updatedAt).toLocaleDateString()}</span>
-                        </div>
-                      </div>
-                    )
-                  })}
-                  {columnDrafts.length === 0 && (
-                    <div className="py-8 text-center text-sm text-nf-muted font-display">
-                      Empty
-                    </div>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-    </div>
-  );
+  return <div className="space-y-6"><header><h2 className="text-2xl font-bold">발행 관리</h2><p className="mt-2 text-nf-muted">게시물은 각 채널에서 직접 올립니다. 이곳에는 검토와 실제 발행 기록을 남깁니다.</p></header>
+    {notice && <p role="alert" className="notice">{notice}</p>}
+    {!drafts.length && <button className="action" onClick={() => onNavigate('repurpose')}>첫 초안 만들기</button>}
+    <div className="flex gap-4 overflow-x-auto pb-6">{columns.map(col => <section key={col.id} className="w-[300px] shrink-0 bg-white border border-nf-border p-4 space-y-4"><h3 className="font-semibold">{col.label} · {drafts.filter(d => d.status === col.id).length}</h3>
+      {drafts.filter(d => d.status === col.id).map(d => <article className="border border-nf-border p-4 space-y-3" key={d.id}>
+        <p className="text-sm text-nf-muted">{d.platform} · 버전 {revisionOf(d)}</p><h4 className="font-semibold break-words">{d.content.hook || '제목 없는 초안'}</h4>
+        {d.status !== 'Published' && !reviewCurrent(d, proofs) && <p className="text-sm text-amber-800">{gateProblems(d, proofs)[0] ?? '현재 버전의 최종 검토가 필요합니다.'}</p>}
+        <button className="action-secondary w-full" onClick={() => onNavigate('repurpose', d.sourceId, d.id)}>{d.status === 'Published' ? '발행 당시 내용·수정본 보기' : '작성·최종 검토하기'}</button>
+        {d.status !== 'Published' && <><label className="block text-sm">작업 상태<select aria-label={`${d.content.hook || '초안'} 작업 상태`} className="field" value={d.status} onChange={e => move(d, e.target.value as DraftStatus)}>{columns.filter(c => c.id !== 'Published').map(c => <option key={c.id} value={c.id} disabled={c.id === 'Review' || (c.id === 'Scheduled' && !reviewCurrent(d, proofs))}>{c.label}</option>)}</select></label>
+        <button className="action w-full" disabled={!reviewCurrent(d, proofs)} onClick={() => { setPublishing(d.id); setUrl(''); setConfirmed(false); setNotice(''); }}>실제 발행 기록하기</button></>}
+        {publishing === d.id && <div className="space-y-3"><label>게시물 링크<input className="field" type="url" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://…" /></label><label className="flex gap-2"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />해당 채널에 실제로 게시했음을 확인했습니다.</label><button className="action" disabled={!confirmed || !safeWebUrl(url)} onClick={() => move(d, 'Published')}>발행 완료로 기록</button><button className="action-secondary" onClick={() => setPublishing(null)}>취소</button></div>}
+        {d.status === 'Published' && <>{d.workflow?.publication ? <><a className="underline break-all" href={safeWebUrl(d.workflow.publication.url) ?? undefined} target="_blank" rel="noreferrer">게시물 열기</a><p className="text-sm text-nf-muted">기록 시각: {new Date(d.workflow.publication.at).toLocaleString('ko-KR')}</p></> : <p className="text-sm text-amber-800">이전 버전의 발행 기록 · 당시 검토와 게시 링크는 미확인</p>}
+        <label className="block text-sm">다음 글에 반영할 교훈<textarea className="field" rows={3} value={d.workflow?.lesson ?? ''} onChange={e => { const lesson = e.target.value; setDrafts(prev => prev.map(x => x.id === d.id ? { ...x, workflow: { ...x.workflow, revision: revisionOf(x), lesson } } : x)); }} placeholder="다음 글에서는 무엇을 유지하거나 바꿀까요?" /></label></>}
+      </article>)}
+    </section>)}</div>
+  </div>;
 }

@@ -11,8 +11,9 @@ export function Sidebar({ currentView, setCurrentView }: SidebarProps) {
     { id: 'dashboard', step: '', label: '대시보드', desc: '다음 할 일 확인' },
     { id: 'library', step: '1', label: '수집', desc: '소스 라이브러리' },
     { id: 'scoring', step: '2', label: '채점 · 승급', desc: 'AI 채점 → 승급 확정' },
-    { id: 'repurpose', step: '3', label: '제작', desc: 'AI 초안 + 보이스 게이트' },
-    { id: 'pipeline', step: '4', label: '발행 관리', desc: '리뷰 → 예약 → 발행' },
+    { id: 'repurpose', step: '3', label: '제작', desc: '직접 작성 · 근거 검토' },
+    { id: 'pipeline', step: '4', label: '발행 관리', desc: '검토 · 실제 발행 기록' },
+    { id: 'settings', step: '', label: '설정 · 백업', desc: '내 글의 방향 · 데이터 보관' },
   ] as const;
 
   return (
@@ -46,7 +47,7 @@ export function Sidebar({ currentView, setCurrentView }: SidebarProps) {
           <span className="text-xs text-nf-muted uppercase tracking-widest font-sans block mb-2">작동 흐름</span>
           <p className="text-[13px] text-nf-ink leading-relaxed">
             수집 → 채점 → 제작 → 발행.<br />
-            증거 없는 글은 발행되지 않습니다.
+            근거와 내용을 확인한 글만<br />발행 완료로 기록합니다.
           </p>
         </div>
       </div>

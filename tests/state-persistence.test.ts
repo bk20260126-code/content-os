@@ -51,7 +51,7 @@ test('loading an empty cloud never migrates localStorage implicitly', async () =
     configurable: true,
     value: {
       localStorage: {
-        getItem: () => localState,
+        getItem: (key: string) => key === 'content_os_state_v1' ? localState : null,
         setItem: () => undefined,
         removeItem: () => undefined,
       },
@@ -59,7 +59,7 @@ test('loading an empty cloud never migrates localStorage implicitly', async () =
   });
   globalThis.fetch = (async (_input, init) => {
     requests.push(init?.method ?? 'GET');
-    return new Response(JSON.stringify({ state: null }), {
+    return new Response(JSON.stringify({ state: null, revision: 0 }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });

@@ -20,11 +20,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     switch (body.task) {
       case 'score':
-        return NextResponse.json({ recommendation: await scoreSource(body.source) });
+        return NextResponse.json({ recommendation: await scoreSource(body.source, body.profile) });
       case 'gate':
-        return NextResponse.json({ recommendation: await evaluateGate(body.draft) });
+        return NextResponse.json({ recommendation: await evaluateGate(body.draft, body.proof, body.source, body.profile) });
       case 'draft':
-        return NextResponse.json({ recommendation: await generateDraft(body.source, body.platform) });
+        return NextResponse.json({ recommendation: await generateDraft(body.source, body.platform, body.profile) });
       default:
         return NextResponse.json({ error: `Unknown task: ${body.task}` }, { status: 400 });
     }

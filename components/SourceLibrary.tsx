@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
 import { Source, SourceType, SourceStatus } from '@/lib/types';
+import { safeWebUrl } from '@/lib/workflow';
 import { ViewState } from '@/app/page';
 
 interface SourceLibraryProps {
   sources: Source[];
+  selectedSourceId?: string | null;
   setSources: React.Dispatch<React.SetStateAction<Source[]>>;
   onNavigate: (view: ViewState, sourceId?: string) => void;
 }
 
-export function SourceLibrary({ sources, setSources, onNavigate }: SourceLibraryProps) {
+export function SourceLibrary({ sources, setSources, selectedSourceId, onNavigate }: SourceLibraryProps) {
   const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(selectedSourceId ?? null);
+  const editing = sources.find(s => s.id === editingId);
   
   // New source form state
   const [title, setTitle] = useState('');
@@ -38,7 +42,8 @@ export function SourceLibrary({ sources, setSources, onNavigate }: SourceLibrary
       createdAt: new Date().toISOString()
     };
 
-    setSources([newSource, ...sources]);
+    setSources(prev => [newSource, ...prev]);
+    setEditingId(newSource.id);
     setIsAdding(false);
     setTitle('');
     setUrl('');
@@ -68,11 +73,11 @@ export function SourceLibrary({ sources, setSources, onNavigate }: SourceLibrary
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs text-nf-muted uppercase tracking-widest mb-2">제목</label>
-                <input required value={title} onChange={e => setTitle(e.target.value)} className="w-full min-h-11 border border-nf-border px-4 py-2.5 text-base focus:outline-none focus:border-nf-ink rounded-none text-nf-ink" placeholder="e.g., AI-native 서비스 트렌드" />
+                <input aria-label="소스 제목" required value={title} onChange={e => setTitle(e.target.value)} className="w-full min-h-11 border border-nf-border px-4 py-2.5 text-base focus:outline-none focus:border-nf-ink rounded-none text-nf-ink" placeholder="e.g., AI-native 서비스 트렌드" />
               </div>
               <div>
                 <label className="block text-xs text-nf-muted uppercase tracking-widest mb-2">URL (선택)</label>
-                <input value={url} onChange={e => setUrl(e.target.value)} className="w-full min-h-11 border border-nf-border px-4 py-2.5 text-base focus:outline-none focus:border-nf-ink rounded-none text-nf-ink" placeholder="https://..." />
+                <input aria-label="소스 URL" value={url} onChange={e => setUrl(e.target.value)} className="w-full min-h-11 border border-nf-border px-4 py-2.5 text-base focus:outline-none focus:border-nf-ink rounded-none text-nf-ink" placeholder="https://..." />
               </div>
             </div>
             <div>
@@ -89,7 +94,7 @@ export function SourceLibrary({ sources, setSources, onNavigate }: SourceLibrary
             </div>
             <div>
               <label className="block text-xs text-nf-muted uppercase tracking-widest mb-2">Raw Notes / Transcript</label>
-              <textarea required value={rawNotes} onChange={e => setRawNotes(e.target.value)} rows={4} className="w-full border border-nf-border px-4 py-3 text-base leading-relaxed focus:outline-none focus:border-nf-ink rounded-none text-nf-ink" placeholder="해당 콘텐츠에서 발견한 인사이트나 중요한 문장을 메모하세요..."></textarea>
+              <textarea aria-label="소스 메모" required value={rawNotes} onChange={e => setRawNotes(e.target.value)} rows={4} className="w-full border border-nf-border px-4 py-3 text-base leading-relaxed focus:outline-none focus:border-nf-ink rounded-none text-nf-ink" placeholder="해당 콘텐츠에서 발견한 인사이트나 중요한 문장을 메모하세요..."></textarea>
             </div>
             <div className="flex justify-end pt-2">
               <button type="submit" className="min-h-11 px-5 py-2.5 bg-nf-ink text-white font-semibold text-[15px] border-none rounded-none hover:bg-black transition-colors">
@@ -99,6 +104,20 @@ export function SourceLibrary({ sources, setSources, onNavigate }: SourceLibrary
           </form>
         </div>
       )}
+
+      {editing && <section className="panel space-y-4">
+        <h3 className="text-xl font-semibold">소스 정리 · {editing.title}</h3>
+        {safeWebUrl(editing.url) && <a className="underline" href={safeWebUrl(editing.url)!} target="_blank" rel="noreferrer">원문 열기</a>}
+        <p className="text-nf-muted">자료 전체를 옮기기보다, 이번 글의 주장과 직접 확인한 근거를 짧게 적으세요.</p>
+        {([
+          ['claim', '핵심 주장', '이 자료를 통해 말할 수 있는 한 가지'],
+          ['author', '출처·작성자', '작성자 또는 직접 관찰한 사람'],
+          ['observedAt', '원문 날짜 또는 관찰일', '예: 2026-09-06'],
+          ['excerpt', '직접 인용 또는 관찰', '주장을 뒷받침하는 정확한 문장·수치·관찰'],
+          ['unknowns', '미확인 사항', '표본, 조건, 확인하지 못한 부분'],
+        ] as const).map(([key, label, placeholder]) => <label className="block" key={key}>{label}<textarea className="field" rows={key === 'excerpt' ? 4 : 2} placeholder={placeholder} value={editing.brief?.[key] ?? ''} onChange={e => { const value = e.target.value; setSources(prev => prev.map(x => x.id === editing.id ? { ...x, brief: { claim: '', author: '', observedAt: '', excerpt: '', unknowns: '', ...x.brief, [key]: value } } : x)); }} /></label>)}
+        <button className="action" onClick={() => onNavigate('repurpose', editing.id)}>이 소재로 직접 작성</button>
+      </section>}
 
       <div className="bg-white border border-nf-border overflow-hidden rounded-none">
         <table className="w-full text-left text-sm whitespace-nowrap">
@@ -127,10 +146,10 @@ export function SourceLibrary({ sources, setSources, onNavigate }: SourceLibrary
                 <td className="px-5 py-4 text-base font-semibold text-nf-ink truncate max-w-xs">{source.title}</td>
                 <td className="px-5 py-4 text-right">
                   <button 
-                    onClick={() => onNavigate('scoring', source.id)}
+                    onClick={() => setEditingId(source.id)}
                     className="text-xs text-nf-ink uppercase tracking-widest font-semibold hover:underline"
                   >
-                    스코어링 &rarr;
+                    주장·근거 정리 &rarr;
                   </button>
                 </td>
               </tr>

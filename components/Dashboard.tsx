@@ -1,28 +1,29 @@
 import React from 'react';
-import { Source, Draft } from '@/lib/types';
+import { Source, Draft, ProofAsset } from '@/lib/types';
+import { gateProblems, reviewCurrent } from '@/lib/workflow';
 import { ViewState } from '@/app/page';
 
 interface DashboardProps {
   sources: Source[];
   drafts: Draft[];
-  onNavigate: (view: ViewState, sourceId?: string) => void;
+  proofs: ProofAsset[];
+  onNavigate: (view: ViewState, sourceId?: string, draftId?: string) => void;
 }
 
-export function Dashboard({ sources, drafts, onNavigate }: DashboardProps) {
+export function Dashboard({ sources, drafts, proofs, onNavigate }: DashboardProps) {
   const totalSources = sources.length;
   const needsScoring = sources.filter(s => s.status !== 'Archived' && s.status !== 'Promoted' && s.status !== 'Drafted' && !s.score).length;
   const promotedNoDraft = sources.filter(s => (s.status === 'Promoted') && !drafts.some(d => d.sourceId === s.id)).length;
-  const gatePending = drafts.filter(d => (d.status === 'Draft' || d.status === 'Idea') && d.brandVoiceGate.result !== 'Ready for review').length;
-  const itemsBlockedByProof = drafts.filter(d => !d.proof.exists).length;
-  const itemsReadyForReview = drafts.filter(d => d.brandVoiceGate.result === 'Ready for review' && d.status !== 'Published').length;
+  const gatePending = drafts.filter(d => (d.status === 'Draft' || d.status === 'Idea') && gateProblems(d, proofs).length > 0).length;
+  const itemsReadyForReview = drafts.filter(d => reviewCurrent(d, proofs) && d.status !== 'Published').length;
   const inProduction = drafts.filter(d => d.status === 'Draft' || d.status === 'Idea').length;
 
   // 다음 할 일 — 파이프라인의 가장 앞에서 막힌 지점을 안내
   let nextAction: { title: string; desc: string; cta: string; view: 'library' | 'scoring' | 'repurpose' | 'pipeline' };
   if (totalSources === 0) {
     nextAction = { title: '첫 소스를 수집하세요', desc: '레퍼런스(유튜브·아티클·고객 대화)를 등록하면 파이프라인이 시작됩니다.', cta: '1단계 — 소스 추가하기', view: 'library' };
-  } else if (needsScoring > 0) {
-    nextAction = { title: `채점 대기 소스 ${needsScoring}개`, desc: 'AI 채점을 요청하고, 점수를 확정해 가치 있는 소스를 승급시키세요.', cta: '2단계 — 채점하러 가기', view: 'scoring' };
+  } else if (drafts.filter(d => d.status !== 'Published').length === 0) {
+    nextAction = { title: '내 소재로 첫 초안을 써보세요', desc: '직접 작성은 AI 키 없이 시작할 수 있습니다. 소재 비교가 필요하면 채점을 선택해서 쓰세요.', cta: '직접 작성하러 가기', view: 'repurpose' };
   } else if (promotedNoDraft > 0) {
     nextAction = { title: `초안이 없는 승급 소스 ${promotedNoDraft}개`, desc: '승급된 소스로 채널별 AI 초안을 생성하세요.', cta: '3단계 — 초안 생성하기', view: 'repurpose' };
   } else if (gatePending > 0) {
@@ -30,14 +31,14 @@ export function Dashboard({ sources, drafts, onNavigate }: DashboardProps) {
   } else if (itemsReadyForReview > 0) {
     nextAction = { title: `리뷰 대기 콘텐츠 ${itemsReadyForReview}개`, desc: '게이트를 통과한 콘텐츠를 최종 리뷰하고 발행 일정을 정하세요.', cta: '4단계 — 파이프라인 가기', view: 'pipeline' };
   } else {
-    nextAction = { title: '파이프라인이 비어 있습니다', desc: '새 소스를 수집해 다음 사이클을 시작하세요.', cta: '1단계 — 소스 추가하기', view: 'library' };
+    nextAction = { title: '다음 콘텐츠를 준비하세요', desc: '새 소스를 수집해 다음 사이클을 시작하세요.', cta: '1단계 — 소스 추가하기', view: 'library' };
   }
 
   const steps = [
     { n: '1', label: '수집', count: totalSources, unit: '소스', desc: '레퍼런스 등록', view: 'library' as const },
     { n: '2', label: '채점 · 승급', count: needsScoring, unit: '대기', desc: 'AI 채점 → 사람 확정', view: 'scoring' as const },
-    { n: '3', label: '제작', count: inProduction, unit: '초안', desc: 'AI 초안 + 보이스 게이트', view: 'repurpose' as const },
-    { n: '4', label: '발행 관리', count: itemsReadyForReview, unit: '리뷰 대기', desc: '리뷰 → 예약 → 발행', view: 'pipeline' as const },
+    { n: '3', label: '제작', count: inProduction, unit: '초안', desc: '직접 작성 · 근거 검토', view: 'repurpose' as const },
+    { n: '4', label: '발행 관리', count: itemsReadyForReview, unit: '리뷰 대기', desc: '검토 · 실제 발행 기록', view: 'pipeline' as const },
   ];
 
   return (
@@ -46,7 +47,7 @@ export function Dashboard({ sources, drafts, onNavigate }: DashboardProps) {
         <div>
           <h2 className="text-2xl font-bold text-nf-ink tracking-tight">대시보드</h2>
         </div>
-        <p className="text-sm leading-relaxed text-nf-muted">수집 → 채점 → 제작 → 발행 · 증거 없는 글은 발행되지 않습니다</p>
+        <p className="text-sm leading-relaxed text-nf-muted">수집 → 작성 → 근거 확인 → 직접 게시 · 발행 기록</p>
       </header>
 
       {/* 다음 할 일 — 항상 단 하나의 행동을 안내 */}
@@ -110,24 +111,24 @@ export function Dashboard({ sources, drafts, onNavigate }: DashboardProps) {
 
         <div className="border border-nf-border bg-white p-6">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-sm text-nf-muted uppercase tracking-widest">블락된 초안</h3>
+            <h3 className="text-sm text-nf-muted uppercase tracking-widest">검토가 필요한 초안</h3>
             <button onClick={() => onNavigate('pipeline')} className="text-xs text-nf-ink uppercase tracking-widest font-semibold hover:underline">파이프라인 가기→</button>
           </div>
           <div className="space-y-2">
-            {drafts.filter(d => !d.proof.exists).slice(0, 3).map(draft => {
+            {drafts.filter(d => d.status !== 'Published' && !reviewCurrent(d, proofs)).slice(0, 3).map(draft => {
               const src = sources.find(s => s.id === draft.sourceId);
               return (
-                <div key={draft.id} className="p-4 border-b border-nf-border bg-white cursor-pointer transition-colors hover:border-nf-ink group" onClick={() => onNavigate('repurpose', draft.sourceId)}>
+                <div key={draft.id} className="p-4 border-b border-nf-border bg-white cursor-pointer transition-colors hover:border-nf-ink group" onClick={() => onNavigate('repurpose', draft.sourceId, draft.id)}>
                   <div className="flex justify-between items-start w-full mb-1">
-                    <span className="px-2 py-1 text-xs font-semibold uppercase rounded-sm bg-[#fef3c7] text-[#b45309]">Blocked</span>
+                    <span className="px-2 py-1 text-xs font-semibold uppercase rounded-sm bg-[#fef3c7] text-[#b45309]">검토 필요</span>
                   </div>
                   <p className="text-base font-semibold text-nf-ink leading-relaxed mb-1 group-hover:text-nf-primary transition-colors">{src?.title || 'Unknown Source'}</p>
                   <p className="text-[13px] text-nf-muted">{draft.platform} · 필요: {draft.proof.type}</p>
                 </div>
               )
             })}
-            {drafts.filter(d => !d.proof.exists).length === 0 && (
-              <p className="text-sm text-nf-muted py-8 text-center font-display">블락된 초안이 없습니다.</p>
+            {drafts.filter(d => d.status !== 'Published' && !reviewCurrent(d, proofs)).length === 0 && (
+              <p className="text-sm text-nf-muted py-8 text-center font-display">검토가 필요한 초안이 없습니다.</p>
             )}
           </div>
         </div>

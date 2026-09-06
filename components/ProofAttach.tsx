@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { safeWebUrl } from '@/lib/workflow';
 import { Draft, ProofAsset, ProofType } from '@/lib/types';
 
 const PROOF_TYPES: ProofType[] = [
@@ -84,7 +85,7 @@ export function ProofAttach({ draft, proofs, onRegister, onAttach, onDetach }: P
               : 'bg-transparent text-nf-muted border-nf-border'
           }`}
         >
-          {attached ? '증명 있음' : '증명 없음'}
+          {attached ? '자료 등록됨' : '증명 없음'}
         </span>
       </div>
 
@@ -95,9 +96,10 @@ export function ProofAttach({ draft, proofs, onRegister, onAttach, onDetach }: P
               <p className="text-[13px] font-semibold text-nf-ink">{attached.title}</p>
               <p className="text-[11px] text-nf-muted uppercase tracking-widest mt-1">{attached.type}</p>
               <p className="text-[13px] text-nf-ink mt-2 leading-relaxed">{attached.description}</p>
-              {attached.url && (
+              {attached.url && !safeWebUrl(attached.url) && <p className="text-sm mt-2 break-all">보관 위치: {attached.url} (파일은 직접 열어 확인하세요)</p>}
+              {safeWebUrl(attached.url) && (
                 <a
-                  href={attached.url}
+                  href={safeWebUrl(attached.url) ?? undefined}
                   target="_blank"
                   rel="noreferrer"
                   className="text-[12px] text-nf-primary underline break-all mt-2 inline-block"
@@ -144,6 +146,7 @@ export function ProofAttach({ draft, proofs, onRegister, onAttach, onDetach }: P
               <div>
                 <label className="block text-[10px] text-nf-muted uppercase tracking-widest mb-1">제목</label>
                 <input
+                  aria-label="증명 제목"
                   value={title}
                   onChange={e => setTitle(e.target.value)}
                   placeholder="예: 3주간 문의 응답 시간 로그"
@@ -153,6 +156,7 @@ export function ProofAttach({ draft, proofs, onRegister, onAttach, onDetach }: P
               <div>
                 <label className="block text-[10px] text-nf-muted uppercase tracking-widest mb-1">유형</label>
                 <select
+                  aria-label="증명 유형"
                   value={type}
                   onChange={e => setType(e.target.value as ProofType)}
                   className="w-full border border-nf-border px-3 py-2 text-[13px] text-nf-ink bg-white focus:outline-none focus:border-nf-ink"
@@ -165,6 +169,7 @@ export function ProofAttach({ draft, proofs, onRegister, onAttach, onDetach }: P
                   이 자료가 실제로 보여주는 것
                 </label>
                 <textarea
+                  aria-label="이 자료가 실제로 보여주는 것"
                   value={description}
                   onChange={e => setDescription(e.target.value)}
                   rows={3}
@@ -174,12 +179,13 @@ export function ProofAttach({ draft, proofs, onRegister, onAttach, onDetach }: P
               </div>
               <div>
                 <label className="block text-[10px] text-nf-muted uppercase tracking-widest mb-1">
-                  파일 경로 또는 링크 (선택)
+                  원문 링크 또는 보관 위치 (선택)
                 </label>
                 <input
+                  aria-label="원문 링크 또는 보관 위치"
                   value={url}
                   onChange={e => setUrl(e.target.value)}
-                  placeholder="~/screenshots/before-after.png 또는 https://…"
+                  placeholder="https://… 또는 자료를 보관한 위치"
                   className="w-full border border-nf-border px-3 py-2 text-[13px] text-nf-ink bg-white focus:outline-none focus:border-nf-ink"
                 />
               </div>

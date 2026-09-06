@@ -26,6 +26,7 @@ export interface Source {
   status: SourceStatus;
   createdAt: string;
   score?: SourceScore;
+  brief?: SourceBrief;
 }
 
 export type Platform = 'LinkedIn' | 'Instagram' | 'Threads' | 'X' | 'YouTube Shorts';
@@ -43,6 +44,7 @@ export interface Draft {
     mainPoint: string;
     proofArtifactNeeded: string;
     cta: string;
+    claim?: string;
   };
   proof: {
     type: ProofType;
@@ -68,6 +70,7 @@ export interface Draft {
     result: GateResult;
   };
   updatedAt: string;
+  workflow?: DraftWorkflow;
 }
 
 // ============================================================
@@ -151,6 +154,8 @@ export interface CreatorProfile {
   voice: string[];   // voice anchors
   avoid: string[];   // banned phrases / generic patterns
   primaryCta: string;
+  audience?: string;
+  goal?: string;
 }
 
 /** Single persisted app state — see lib/storage.ts */
@@ -161,4 +166,21 @@ export interface AppState {
   proofs: ProofAsset[];
   runs: ContentRun[];
   profile: CreatorProfile | null;
+}
+
+export interface SourceBrief {
+  claim: string;
+  author: string;
+  observedAt: string;
+  excerpt: string;
+  unknowns: string;
+}
+
+export interface DraftWorkflow {
+  revision: number;
+  verifiedProof?: { revision: number; proofId: string; fingerprint: string };
+  reviewed?: { revision: number; at: string };
+  publication?: { at: string; url: string };
+  supersedes?: string;
+  lesson?: string;
 }

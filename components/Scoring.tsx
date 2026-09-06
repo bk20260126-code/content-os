@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Source, SourceScore } from '@/lib/types';
+import { Source, SourceScore, CreatorProfile } from '@/lib/types';
 import { ViewState } from '@/app/page';
+import { safeWebUrl } from '@/lib/workflow';
 import { requestAI } from '@/lib/ai-client';
 
 interface AiScoreRec {
@@ -18,7 +19,7 @@ function deriveAction(score: { totalScore: number; brandVoiceScore: number; proo
   if (score.brandVoiceScore < 80) action = 'rewrite';
   if (score.proofDensityScore < 8) action = 'hold'; // "Proof needed"
   if (score.founderAuthorityScore < 10) action = 'enrich'; // "Founder take weak"
-  if (score.totalScore >= 21 && score.brandVoiceScore >= 80 && score.proofDensityScore >= 8) {
+  if (score.totalScore >= 21 && score.brandVoiceScore >= 80 && score.proofDensityScore >= 8 && score.founderAuthorityScore >= 10) {
     action = 'promote';
   }
   return action;
@@ -26,16 +27,18 @@ function deriveAction(score: { totalScore: number; brandVoiceScore: number; proo
 
 interface ScoringProps {
   sources: Source[];
+  profile: CreatorProfile | null;
   setSources: React.Dispatch<React.SetStateAction<Source[]>>;
   selectedSourceId: string | null;
   onNavigate: (view: ViewState, sourceId?: string) => void;
 }
 
-export function Scoring({ sources, setSources, selectedSourceId, onNavigate }: ScoringProps) {
+export function Scoring({ sources, setSources, selectedSourceId, onNavigate, profile }: ScoringProps) {
   const [activeId, setActiveId] = useState<string | null>(selectedSourceId || (sources[0]?.id || null));
   const [prevSelectedSourceId, setPrevSelectedSourceId] = useState<string | null>(selectedSourceId);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiRec, setAiRec] = useState<AiScoreRec | null>(null);
+  const [recKey, setRecKey] = useState('');
   const [aiError, setAiError] = useState<string | null>(null);
 
   if (selectedSourceId !== prevSelectedSourceId) {
@@ -69,18 +72,18 @@ export function Scoring({ sources, setSources, selectedSourceId, onNavigate }: S
     const newScore = { ...currentScore, [field]: value };
     newScore.nextAction = deriveAction(newScore) as any;
 
-    setSources(sources.map(s => {
+    setSources(prev => prev.map(s => {
       if (s.id === activeSource.id) return { ...s, score: newScore };
       return s;
     }));
   };
 
   const handleFieldChange = (field: keyof Source, value: string) => {
-    setSources(sources.map(s => s.id === activeSource.id ? { ...s, [field]: value } : s));
+    setSources(prev => prev.map(s => s.id === activeSource.id ? { ...s, [field]: value } : s));
   };
 
   const promoteSource = () => {
-    setSources(sources.map(s => s.id === activeSource.id ? { ...s, status: 'Promoted' } : s));
+    setSources(prev => prev.map(s => s.id === activeSource.id ? { ...s, status: 'Promoted' } : s));
     onNavigate('repurpose', activeSource.id);
   };
 
@@ -89,7 +92,10 @@ export function Scoring({ sources, setSources, selectedSourceId, onNavigate }: S
     setAiError(null);
     setAiRec(null);
     try {
-      const rec = await requestAI<AiScoreRec>('score', { source: activeSource });
+      const key = JSON.stringify([activeSource, profile]);
+      const rec = await requestAI<AiScoreRec>('score', { source: activeSource, profile });
+      if (!rec || !['totalScore','brandVoiceScore','proofDensityScore','founderAuthorityScore'].every(k => typeof rec[k as keyof AiScoreRec] === 'number' && Number.isFinite(rec[k as keyof AiScoreRec])) || typeof rec.rationale !== 'string') throw new Error('AI 채점 형식이 올바르지 않습니다.');
+      setRecKey(key);
       setAiRec(rec);
     } catch (e) {
       setAiError(e instanceof Error ? e.message : 'AI 요청 실패');
@@ -100,7 +106,7 @@ export function Scoring({ sources, setSources, selectedSourceId, onNavigate }: S
 
   // Apply AI numbers as a STARTING POINT — human adjusts sliders and confirms promote.
   const applyAiRec = () => {
-    if (!aiRec) return;
+    if (!aiRec || recKey !== JSON.stringify([activeSource, profile])) return;
     const newScore: SourceScore = {
       totalScore: Math.min(30, Math.max(0, Math.round(aiRec.totalScore))),
       brandVoiceScore: Math.min(100, Math.max(0, Math.round(aiRec.brandVoiceScore))),
@@ -109,7 +115,7 @@ export function Scoring({ sources, setSources, selectedSourceId, onNavigate }: S
       nextAction: 'evaluating' as any,
     };
     newScore.nextAction = deriveAction(newScore) as any;
-    setSources(sources.map(s => s.id === activeSource.id ? { ...s, score: newScore } : s));
+    setSources(prev => prev.map(s => s.id === activeSource.id ? { ...s, score: newScore } : s));
     setAiRec(null);
   };
 
@@ -144,7 +150,7 @@ export function Scoring({ sources, setSources, selectedSourceId, onNavigate }: S
       <div className="flex-1 flex flex-col bg-white overflow-y-auto h-[100vh] pt-8 p-12 xl:p-14">
         <div className="mb-8">
           <h2 className="font-display text-3xl font-semibold mb-2">{s.title}</h2>
-          <p className="text-[14px] text-nf-muted">{s.type} • <a href={s.url} target="_blank" rel="noreferrer" className="text-nf-ink hover:underline border-b border-nf-muted pb-[1px]">{s.url || 'URL 없음'}</a></p>
+          <p className="text-[14px] text-nf-muted">{s.type} • <a href={safeWebUrl(s.url) ?? undefined} target="_blank" rel="noreferrer" className="text-nf-ink hover:underline border-b border-nf-muted pb-[1px]">{s.url || 'URL 없음'}</a></p>
         </div>
         
         <div className="flex gap-4 border-y border-nf-border py-6 mb-8">
@@ -161,7 +167,7 @@ export function Scoring({ sources, setSources, selectedSourceId, onNavigate }: S
               <div className="font-display text-[1.5rem] font-semibold">{sc?.proofDensityScore || 0} <span className="text-[12px] font-sans font-normal opacity-50">/ 15</span></div>
             </div>
             <div className="flex-1">
-              <div className="text-[10px] text-nf-muted uppercase tracking-widest mb-1">창업자 권위</div>
+              <div className="text-[10px] text-nf-muted uppercase tracking-widest mb-1">작성자 경험</div>
               <div className="font-display text-[1.5rem] font-semibold">{sc?.founderAuthorityScore || 0} <span className="text-[12px] font-sans font-normal opacity-50">/ 15</span></div>
             </div>
             <div className="flex-1 text-right">
@@ -211,7 +217,7 @@ export function Scoring({ sources, setSources, selectedSourceId, onNavigate }: S
             </div>
             <p className="text-[11px] text-nf-muted mb-4">AI는 추천만 합니다. 적용 후에도 슬라이더로 수정하고 직접 승급을 확정하세요.</p>
             {aiError && <p className="text-[12px] text-nf-primary">{aiError}</p>}
-            {aiRec && (
+            {aiRec && recKey === JSON.stringify([activeSource, profile]) && (
               <div className="bg-[#fafafa] border border-nf-border p-4 space-y-3">
                 <div className="flex gap-6 text-[13px]">
                   <span>총점 <strong className="font-display">{aiRec.totalScore}</strong>/30</span>

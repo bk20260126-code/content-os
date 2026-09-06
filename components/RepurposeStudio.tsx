@@ -1,403 +1,123 @@
-import React, { useState, useEffect } from 'react';
-import { Source, Draft, Platform, DraftStatus, GateResult, ProofAsset } from '@/lib/types';
+import React, { useRef, useState, useEffect } from 'react';
+import { Source, Draft, ProofAsset, CreatorProfile, Platform } from '@/lib/types';
 import { ViewState } from '@/app/page';
 import { requestAI } from '@/lib/ai-client';
-import { ProofAttach } from '@/components/ProofAttach';
+import { ProofAttach } from './ProofAttach';
+import { requiredChecks, advisoryChecks, draftRequestKey, editDraft, evidenceFor, evidenceVerified, gateProblems, newDraft, revisionOf, transitionDraft, verifyEvidence } from '@/lib/workflow';
 
-interface AiDraftRec {
-  hook: string;
-  mainPoint: string;
-  proofArtifactNeeded: string;
-  cta: string;
-}
-
-interface AiGateRec {
-  founderAuthority: boolean;
-  businessTension: boolean;
-  categoryOwnership: boolean;
-  proofDensity: boolean;
-  specificity: boolean;
-  antiGenericness: boolean;
-  conversionIntent: boolean;
-  result: string;
-  rationale: string;
-}
-
-// Single source of truth for gate result rules (manual toggle + AI-applied share this)
-//
-// Proof density is deliberately NOT read from the checklist here. It used to be,
-// and because `proofDensity` has no checkbox in the UI, the gate could never reach
-// 'Ready for review' by hand — only an AI evaluation could set it. Now that a draft
-// carries a real ProofAsset link, the attached artifact answers the question the
-// checkbox was asking, so `proofExists` is the honest single condition.
-function deriveGateResult(gate: Omit<Draft['brandVoiceGate'], 'result'>, proofExists: boolean): GateResult {
-  if (!gate.antiGenericness) return 'Too generic';
-  if (!gate.founderAuthority) return 'Needs stronger founder take';
-  if (!proofExists) return 'Needs proof';
-  return 'Ready for review';
-}
-
-interface RepurposeStudioProps {
-  sources: Source[];
-  drafts: Draft[];
+interface Props {
+  sources: Source[]; drafts: Draft[]; proofs: ProofAsset[]; profile: CreatorProfile | null;
   setDrafts: React.Dispatch<React.SetStateAction<Draft[]>>;
-  proofs: ProofAsset[];
   setProofs: React.Dispatch<React.SetStateAction<ProofAsset[]>>;
-  selectedSourceId: string | null;
-  onNavigate: (view: ViewState, sourceId?: string) => void;
+  selectedSourceId: string | null; selectedDraftId?: string | null;
+  onNavigate: (view: ViewState, sourceId?: string, draftId?: string) => void;
 }
-
-const platforms: Platform[] = ['LinkedIn', 'Instagram', 'Threads', 'X', 'YouTube Shorts'];
-
-export function RepurposeStudio({ sources, drafts, setDrafts, proofs, setProofs, selectedSourceId, onNavigate }: RepurposeStudioProps) {
-  const promotedSources = sources.filter(s => s.status === 'Promoted' || s.status === 'Drafted');
-  
-  const [activeSourceId, setActiveSourceId] = useState<string | null>(
-    selectedSourceId && promotedSources.find(s => s.id === selectedSourceId) ? selectedSourceId : (promotedSources[0]?.id || null)
-  );
-  const [prevSelectedSourceId, setPrevSelectedSourceId] = useState<string | null>(selectedSourceId);
-  const [activePlatform, setActivePlatform] = useState<Platform>('LinkedIn');
-  
-  if (selectedSourceId !== prevSelectedSourceId) {
-    setPrevSelectedSourceId(selectedSourceId);
-    if (selectedSourceId && promotedSources.find(s => s.id === selectedSourceId)) {
-      setActiveSourceId(selectedSourceId);
-    }
+type GateRec = Pick<Draft['brandVoiceGate'], 'founderAuthority' | 'specificity' | 'antiGenericness' | 'businessTension' | 'categoryOwnership' | 'conversionIntent'> & { rationale: string };
+export function RepurposeStudio({ sources, drafts, proofs, profile, setDrafts, setProofs, selectedSourceId, selectedDraftId, onNavigate }: Props) {
+  const initialDraft = drafts.find(d => d.id === selectedDraftId);
+  const candidates = sources.filter(s => s.status !== 'Archived');
+  const [sourceId, setSourceId] = useState(initialDraft?.sourceId ?? selectedSourceId ?? candidates[0]?.id ?? '');
+  const [platform, setPlatform] = useState<Platform>(initialDraft?.platform ?? 'LinkedIn');
+  const [draftId, setDraftId] = useState(initialDraft?.id ?? '');
+  const [notice, setNotice] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [rec, setRec] = useState<{ key: string; value: GateRec } | null>(null);
+  const source = sources.find(s => s.id === sourceId);
+  const versions = drafts.filter(d => d.sourceId === sourceId && d.platform === platform);
+  const draft = versions.find(d => d.id === draftId) ?? versions.find(d => d.status !== 'Published') ?? versions[0];
+  const activeKey = draft ? draftRequestKey(draft) : '';
+  const activeKeyRef = useRef(activeKey);
+  useEffect(() => { activeKeyRef.current = activeKey; }, [activeKey]);
+  const frozen = draft?.status === 'Published';
+  const problems = draft ? gateProblems(draft, proofs) : [];
+  const validRec = rec?.key === activeKey ? rec.value : null;
+  function update(fn: (d: Draft) => Draft) {
+    if (!draft) return;
+    setDrafts(prev => prev.map(d => d.id === draft.id ? fn(d) : d));
+    setRec(null); setNotice('');
   }
-
-  const activeSource = sources.find(s => s.id === activeSourceId);
-  const activeDraft = drafts.find(d => d.sourceId === activeSourceId && d.platform === activePlatform);
-
-  const [draftLoading, setDraftLoading] = useState(false);
-  const [gateLoading, setGateLoading] = useState(false);
-  const [gateRec, setGateRec] = useState<AiGateRec | null>(null);
-  const [aiNotice, setAiNotice] = useState<string | null>(null);
-
-  const buildDraft = (content: Draft['content']): Draft => ({
-    id: `d_${Date.now()}`,
-    sourceId: activeSource!.id,
-    platform: activePlatform,
-    status: 'Draft',
-    content,
-    proof: {
-      type: 'screenshot',
-      exists: false,
-      description: ''
-    },
-    brandVoiceGate: {
-      founderAuthority: false,
-      businessTension: false,
-      categoryOwnership: false,
-      proofDensity: false,
-      specificity: false,
-      antiGenericness: false,
-      conversionIntent: false,
-      result: 'Too generic' // gate starts closed — must be evaluated, never pre-passed
-    },
-    updatedAt: new Date().toISOString()
-  });
-
-  const handleGenerateDraft = async () => {
-    if (!activeSource || draftLoading) return;
-    setDraftLoading(true);
-    setAiNotice(null);
+  const switchSource = (id: string) => { setSourceId(id); setDraftId(''); setRec(null); setNotice(''); };
+  async function create(ai: boolean) {
+    if (!source || loading) return;
+    const capturedSource = source, capturedPlatform = platform;
+    setLoading(true); setNotice('');
     try {
-      // Real AI draft via /api/ai
-      const rec = await requestAI<AiDraftRec>('draft', { source: activeSource, platform: activePlatform });
-      setDrafts([...drafts, buildDraft({
-        hook: rec.hook || '',
-        mainPoint: rec.mainPoint || '',
-        proofArtifactNeeded: rec.proofArtifactNeeded || activeSource.proofNeeded || '',
-        cta: rec.cta || ''
-      })]);
-    } catch (e) {
-      // Fallback: template stub so the workflow never blocks (manual mode)
-      setAiNotice(`AI 생성 실패 — 템플릿 초안으로 대체했습니다. (${e instanceof Error ? e.message : '오류'})`);
-      setDrafts([...drafts, buildDraft({
-        hook: `[Hook for ${activePlatform}] ${activeSource.title}`,
-        mainPoint: activeSource.offerAngle || 'Missing offer angle',
-        proofArtifactNeeded: activeSource.proofNeeded || 'Missing proof requirement',
-        cta: 'Leave a comment below!'
-      })]);
-    } finally {
-      setDraftLoading(false);
-    }
-  };
-
-  const requestGateEval = async () => {
-    if (!activeDraft || gateLoading) return;
-    setGateLoading(true);
-    setAiNotice(null);
-    setGateRec(null);
+      let content: Draft['content'] = { hook: '', mainPoint: '', claim: source.brief?.claim ?? '', proofArtifactNeeded: source.proofNeeded, cta: profile?.primaryCta ?? '' };
+      if (ai) {
+        const result = await requestAI<Draft['content']>('draft', { source: capturedSource, platform: capturedPlatform, profile });
+        if (!result || !['hook','mainPoint','cta','proofArtifactNeeded'].every(k => typeof result[k as keyof typeof result] === 'string')) throw new Error('AI 응답 형식이 올바르지 않습니다. 직접 작성으로 시작할 수 있습니다.');
+        content = { ...content, hook: result.hook, mainPoint: result.mainPoint, cta: result.cta, proofArtifactNeeded: result.proofArtifactNeeded };
+      }
+      const created = newDraft(capturedSource.id, capturedPlatform, content);
+      setDrafts(prev => [...prev, created]);
+      setSourceId(capturedSource.id); setPlatform(capturedPlatform); setDraftId(created.id); setRec(null);
+    } catch (e) { setNotice(e instanceof Error ? e.message : 'AI 요청 실패'); }
+    finally { setLoading(false); }
+  }
+  async function evaluate() {
+    if (!draft || loading) return;
+    const key = draftRequestKey(draft); setLoading(true); setRec(null); setNotice('');
     try {
-      const rec = await requestAI<AiGateRec>('gate', { draft: activeDraft });
-      setGateRec(rec);
-    } catch (e) {
-      setAiNotice(e instanceof Error ? e.message : 'AI 게이트 평가 실패');
-    } finally {
-      setGateLoading(false);
-    }
-  };
-
-  // Apply AI gate booleans as a starting point — human can still toggle each checkbox.
-  const applyGateRec = () => {
-    if (!activeDraft || !gateRec) return;
-    const newGate = {
-      founderAuthority: !!gateRec.founderAuthority,
-      businessTension: !!gateRec.businessTension,
-      categoryOwnership: !!gateRec.categoryOwnership,
-      proofDensity: !!gateRec.proofDensity,
-      specificity: !!gateRec.specificity,
-      antiGenericness: !!gateRec.antiGenericness,
-      conversionIntent: !!gateRec.conversionIntent,
-    };
-    const result = deriveGateResult(newGate, activeDraft.proof.exists);
-    setDrafts(drafts.map(d => d.id === activeDraft.id ? { ...d, brandVoiceGate: { ...newGate, result } } : d));
-    setGateRec(null);
-  };
-
-  const updateDraftField = (field: keyof Draft['content'], value: string) => {
-    if (!activeDraft) return;
-    setDrafts(drafts.map(d => d.id === activeDraft.id ? { ...d, content: { ...d.content, [field]: value } } : d));
-  };
-  
-  const toggleGate = (field: keyof Draft['brandVoiceGate']) => {
-    if (!activeDraft) return;
-    const gate = activeDraft.brandVoiceGate;
-    const newGate = { ...gate, [field]: !gate[field as keyof typeof gate] };
-    newGate.result = deriveGateResult(newGate, activeDraft.proof.exists);
-    setDrafts(drafts.map(d => d.id === activeDraft.id ? { ...d, brandVoiceGate: newGate as any } : d));
-  };
-
-  const registerProof = (proof: ProofAsset) => setProofs(prev => [proof, ...prev]);
-
-  /**
-   * Attaching evidence is the only way proof.exists becomes true.
-   * A proof registered this turn is not in `proofs` yet (state updates are async),
-   * so the caller passes it through `justRegistered`.
-   */
-  const attachProof = (proofId: string, justRegistered?: ProofAsset) => {
-    if (!activeDraft) return;
-    const attached = justRegistered ?? proofs.find(p => p.id === proofId);
-    if (!attached) return;
-    setDrafts(drafts.map(d => {
-      if (d.id !== activeDraft.id) return d;
-      const nextProof = {
-        ...d.proof,
-        proofId,
-        exists: true,
-        type: attached.type,
-        description: attached.description,
-      };
-      const nextGate = { ...d.brandVoiceGate, proofDensity: true };
-      return {
-        ...d,
-        proof: nextProof,
-        brandVoiceGate: { ...nextGate, result: deriveGateResult(nextGate, true) },
-      };
-    }));
-  };
-
-  const detachProof = () => {
-    if (!activeDraft) return;
-    setDrafts(drafts.map(d => {
-      if (d.id !== activeDraft.id) return d;
-      const nextProof = { ...d.proof, proofId: undefined, exists: false };
-      const nextGate = { ...d.brandVoiceGate, proofDensity: false };
-      return { ...d, proof: nextProof, brandVoiceGate: { ...nextGate, result: deriveGateResult(nextGate, false) } };
-    }));
-  };
-
-  const moveToReview = () => {
-    if (!activeDraft) return;
-    setDrafts(drafts.map(d => d.id === activeDraft.id ? { ...d, status: 'Review' } : d));
+      const value = await requestAI<GateRec>('gate', { draft, proof: evidenceFor(draft, proofs), source, profile });
+      if (!value || ![...requiredChecks, ...advisoryChecks].every(c => typeof value[c.key] === 'boolean') || typeof value.rationale !== 'string') throw new Error('AI 평가 형식이 올바르지 않습니다. 직접 검토해 주세요.');
+      if (activeKeyRef.current === key) setRec({ key, value });
+      else setNotice('평가 중 초안이 바뀌어 이전 결과를 적용하지 않았습니다.');
+    } catch (e) { setNotice(e instanceof Error ? e.message : 'AI 평가 실패'); }
+    finally { setLoading(false); }
+  }
+  function apply() {
+    if (!draft || !validRec) return;
+    const key = activeKey;
+    setDrafts(prev => prev.map(d => d.id === draft.id && draftRequestKey(d) === key ? editDraft(d, { brandVoiceGate: { ...d.brandVoiceGate, ...validRec } }) : d));
+    setRec(null);
+  }
+  function review() {
+    if (!draft) return;
+    const result = transitionDraft(draft, 'Review', proofs, { reviewed: true });
+    if (result.error) { setNotice(result.error); return; }
+    setDrafts(prev => prev.map(d => d.id === draft.id && draftRequestKey(d) === activeKey ? result.draft : d));
     onNavigate('pipeline');
-  };
-
-  if (!activeSource) {
-    return (
-      <div className="workspace-readable flex flex-col items-center justify-center h-[60vh] text-center">
-        <div className="font-display text-[2rem] text-nf-muted opacity-40 mb-3">승급된 소스가 없습니다</div>
-        <p className="text-[13px] text-nf-muted leading-relaxed max-w-md mb-6">
-          제작은 승급된 소스에서 시작합니다. 2단계 채점에서 소스를 평가하고 기준을 충족하면 승급하세요.
-        </p>
-        <button onClick={() => onNavigate('scoring')} className="px-6 py-3 bg-nf-ink text-white font-semibold text-[0.85rem] hover:bg-black transition-colors">
-          ← 2단계 — 채점하러 가기
-        </button>
-      </div>
-    );
   }
-
-  return (
-    <div className="workspace-readable flex gap-0 h-[calc(100vh-6rem)] animate-in fade-in slide-in-from-bottom-2 duration-500 -mt-8 -mx-8 xl:-mt-10 xl:-mx-10 relative -top-8 xl:-top-10 h-[calc(100vh)]">
-      <div className="w-[360px] bg-[#fafafa] border-r border-nf-border flex flex-col pt-8">
-        <div className="px-6 mb-4">
-          <h3 className="text-[10px] text-nf-muted uppercase tracking-widest">승급된 소스 분석 대상</h3>
-        </div>
-        <div className="flex-1 overflow-y-auto px-4 space-y-2 pb-8">
-            {promotedSources.map(src => (
-              <div 
-                key={src.id}
-                onClick={() => setActiveSourceId(src.id)}
-                className={`p-4 bg-white cursor-pointer transition-colors border-b border-nf-border hover:border-nf-ink group ${activeSourceId === src.id ? 'border-nf-ink' : 'border-transparent'}`}
-              >
-                <div className="flex justify-between items-start mb-1">
-                  <span className={`px-2 py-0.5 text-[11px] font-semibold uppercase rounded-sm bg-[#e6f4ea] text-[#2d6a4f]`}>{src.status}</span>
-                </div>
-                <p className="text-[14px] font-semibold text-nf-ink leading-[1.4] mb-1 group-hover:text-nf-primary transition-colors">{src.title}</p>
-                <p className="text-[11px] text-nf-muted">{src.type}</p>
-              </div>
-            ))}
-        </div>
-        
-        {activeSourceId && (
-          <div className="border-t border-nf-border bg-white p-6">
-            <h4 className="text-[10px] text-nf-muted uppercase tracking-widest mb-3 border-b border-nf-border pb-2">Target Platform</h4>
-            <div className="flex flex-col gap-1">
-              {platforms.map(p => {
-                const hasDraft = drafts.some(d => d.sourceId === activeSourceId && d.platform === p);
-                return (
-                  <button
-                    key={p}
-                    onClick={() => setActivePlatform(p)}
-                    className={`text-left px-3 py-2 rounded text-sm flex justify-between items-center transition-colors ${activePlatform === p ? 'bg-nf-ink text-white font-medium' : 'text-nf-ink hover:bg-gray-100'}`}
-                  >
-                    <span className="text-[13px]">{p}</span>
-                    {hasDraft && <span className={`w-2 h-2 rounded-full ${activePlatform === p ? 'bg-white/50' : 'bg-nf-ink'}`} />}
-                  </button>
-                )
-              })}
-            </div>
-            
-            <div className="mt-6 pt-4 border-t border-nf-border">
-              <h4 className="text-[10px] text-nf-muted uppercase tracking-widest mb-2">Source Context</h4>
-              <p className="text-[11px] text-nf-muted mb-1"><strong className="text-nf-ink font-semibold">Angle:</strong> {activeSource.offerAngle}</p>
-              <p className="text-[11px] text-nf-muted"><strong className="text-nf-ink font-semibold">Proof needed:</strong> {activeSource.proofNeeded}</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="flex-1 flex flex-col h-full bg-white">
-        <header className="px-12 py-6 border-b border-nf-border flex justify-between items-center bg-white h-[85px] shrink-0">
-          <div>
-            <h2 className="font-display text-[1.8rem] font-bold text-nf-ink flex items-center gap-4">
-              {activePlatform}
-              {activeDraft && <span className={`text-[10px] font-sans px-3 py-1 uppercase tracking-widest ${activeDraft.status === 'Draft' ? 'bg-[#e0f2fe] text-[#0369a1]' : 'bg-[#f3e8ff] text-[#7e22ce]'}`}>{activeDraft.status}</span>}
-            </h2>
-          </div>
-          {!activeDraft && (
-            <button onClick={handleGenerateDraft} disabled={draftLoading} className="px-6 py-2 bg-nf-ink text-white font-semibold text-[0.85rem] border-none rounded-none hover:bg-black transition-colors shrink-0 whitespace-nowrap disabled:bg-nf-border disabled:text-nf-muted disabled:cursor-wait">
-              {draftLoading ? 'AI 생성 중…' : 'AI 초안 생성'}
-            </button>
-          )}
-        </header>
-
-        {activeDraft ? (
-          <div className="flex-1 overflow-y-auto flex">
-            <div className="w-2/3 p-12 xl:p-14 border-r border-nf-border space-y-8">
-              <div>
-                <label className="block text-[10px] text-nf-muted uppercase tracking-widest mb-2 border-b border-nf-border pb-1">Hook (도입부)</label>
-                <textarea rows={2} value={activeDraft.content.hook} onChange={e => updateDraftField('hook', e.target.value)} className="w-full border-none p-0 text-[14px] focus:outline-none bg-transparent hover:bg-[#fafafa] transition-colors resize-none leading-relaxed text-nf-ink" />
-              </div>
-              <div>
-                <label className="block text-[10px] text-nf-muted uppercase tracking-widest mb-2 border-b border-nf-border pb-1">Main Point (본문)</label>
-                <textarea rows={12} value={activeDraft.content.mainPoint} onChange={e => updateDraftField('mainPoint', e.target.value)} className="w-full border-none p-0 text-[14px] focus:outline-none bg-transparent hover:bg-[#fafafa] transition-colors resize-none leading-relaxed text-nf-ink" />
-              </div>
-              <div>
-                <label className="block text-[10px] text-nf-muted uppercase tracking-widest mb-2 border-b border-nf-border pb-1">Call to Action (행동 유도)</label>
-                <input value={activeDraft.content.cta} onChange={e => updateDraftField('cta', e.target.value)} className="w-full border-none p-0 text-[14px] focus:outline-none bg-transparent hover:bg-[#fafafa] transition-colors text-nf-ink py-2" />
-              </div>
-              <ProofAttach
-                draft={activeDraft}
-                proofs={proofs}
-                onRegister={registerProof}
-                onAttach={attachProof}
-                onDetach={detachProof}
-              />
-            </div>
-            
-            <div className="w-1/3 bg-[#fafafa] p-8 flex flex-col overflow-y-auto">
-              <h3 className="text-[10px] text-nf-muted uppercase tracking-widest mb-4">Brand Voice Gate</h3>
-              <p className="text-[13px] text-nf-ink mb-6 leading-relaxed font-display border-b border-nf-border pb-6">&quot;이 글이 흔한 AI의 글처럼 보이지 않도록, 브랜드의 실제 경험과 관점이 담겼는지 체크하세요.&quot;</p>
-
-              {/* AI 게이트 평가 — 추천일 뿐, 확정은 사람 */}
-              <div className="mb-6">
-                <button
-                  onClick={requestGateEval}
-                  disabled={gateLoading}
-                  className="w-full py-2 border border-nf-ink text-nf-ink text-[11px] font-semibold uppercase tracking-widest hover:bg-nf-ink hover:text-white transition-colors disabled:border-nf-border disabled:text-nf-muted disabled:cursor-wait"
-                >
-                  {gateLoading ? 'AI 평가 중…' : 'AI 게이트 평가 요청'}
-                </button>
-                {aiNotice && <p className="text-[11px] text-nf-primary mt-2 leading-snug">{aiNotice}</p>}
-                {gateRec && (
-                  <div className="mt-3 bg-white border border-nf-border p-4 space-y-2">
-                    <p className="text-[11px] font-semibold text-nf-ink">AI 추천: {gateRec.result}</p>
-                    <p className="text-[11px] text-nf-muted leading-snug">{gateRec.rationale}</p>
-                    <div className="flex gap-2 pt-1">
-                      <button onClick={applyGateRec} className="px-3 py-1.5 bg-nf-ink text-white text-[10px] font-semibold uppercase tracking-widest hover:bg-black transition-colors">적용 (수정 가능)</button>
-                      <button onClick={() => setGateRec(null)} className="px-3 py-1.5 border border-nf-border text-nf-muted text-[10px] font-semibold uppercase tracking-widest hover:text-nf-ink transition-colors">무시</button>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              <div className="space-y-4 mb-8 flex-1">
-                {[
-                  { key: 'founderAuthority', label: '파운더의 실제 경험/권위가 들어갔는가?' },
-                  { key: 'businessTension', label: '비즈니스 텐션(갈등/해소가 명확)이 있는가?' },
-                  { key: 'categoryOwnership', label: '우리만 할 수 있는 이야기인가?' },
-                  { key: 'specificity', label: '구체적인 숫자나 고유 명사가 있는가?' },
-                  { key: 'antiGenericness', label: '흔한 자기계발 봇이 쓸 수 없는 내용인가?' },
-                ].map(item => (
-                  <label key={item.key} className="flex items-start gap-3 p-2 hover:bg-[#eee] transition-colors cursor-pointer group rounded-sm">
-                    <input 
-                      type="checkbox" 
-                      checked={activeDraft.brandVoiceGate[item.key as keyof Draft['brandVoiceGate']] as boolean}
-                      onChange={() => toggleGate(item.key as keyof Draft['brandVoiceGate'])}
-                      className="mt-[3px] accent-nf-ink w-3 h-3"
-                    />
-                    <span className={`text-[12px] leading-snug ${activeDraft.brandVoiceGate[item.key as keyof Draft['brandVoiceGate']] ? 'text-nf-ink font-semibold' : 'text-nf-muted group-hover:text-nf-ink'}`}>{item.label}</span>
-                  </label>
-                ))}
-              </div>
-              
-              <div className={`p-6 border text-center bg-white ${
-                activeDraft.brandVoiceGate.result === 'Ready for review' ? 'border-[#2d6a4f]' :
-                activeDraft.brandVoiceGate.result.includes('proof') ? 'border-[#b45309]' :
-                'border-[#e55c25]'
-              }`}>
-                <p className="text-[10px] text-nf-muted uppercase tracking-widest mb-2">Gate Status</p>
-                <p className={`font-display text-[18px] font-semibold tracking-tight ${
-                  activeDraft.brandVoiceGate.result === 'Ready for review' ? 'text-[#2d6a4f]' :
-                  activeDraft.brandVoiceGate.result.includes('proof') ? 'text-[#b45309]' :
-                  'text-[#e55c25]'
-                }`}>
-                  {activeDraft.brandVoiceGate.result}
-                </p>
-                
-                <button 
-                  onClick={moveToReview}
-                  disabled={activeDraft.brandVoiceGate.result !== 'Ready for review'}
-                  className={`mt-6 w-full py-3 text-[11px] font-semibold uppercase tracking-widest border transition-all ${
-                    activeDraft.brandVoiceGate.result === 'Ready for review' 
-                      ? 'bg-nf-ink text-white border-nf-ink hover:bg-black' 
-                      : 'bg-transparent text-nf-muted border-nf-border cursor-not-allowed'
-                  }`}
-                >
-                  리뷰 파이프라인으로 이동
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-[#fafafa]">
-             <div className="font-display text-[2.5rem] text-nf-muted opacity-30 mb-4">No Draft Yet</div>
-             <p className="text-[13px] text-nf-muted leading-relaxed max-w-[280px]">상단의 &quot;AI 초안 생성&quot;을 클릭하면 소스 데이터를 바탕으로 AI가 초안을 작성합니다. (키 미설정 시 템플릿 모드)</p>
-          </div>
-        )}
-      </div>
+  function fork() {
+    if (!draft) return;
+    const created = newDraft(draft.sourceId, draft.platform, { ...draft.content }, draft.id);
+    setDrafts(prev => [...prev, created]); setDraftId(created.id); setNotice('발행 당시 기록은 보존하고 새 수정본을 만들었습니다.');
+  }
+  if (!source) return <div className="space-y-4"><h2 className="text-2xl font-bold">첫 소재를 등록하세요</h2><p>내 경험이나 참고한 자료를 적으면 직접 작성을 시작할 수 있습니다.</p><button className="action" onClick={() => onNavigate('library')}>소스 추가하기</button></div>;
+  return <div className="space-y-6 workspace-readable">
+    <header><h2 className="text-2xl font-bold">콘텐츠 제작</h2><p className="text-nf-muted mt-2">직접 작성하고 근거를 확인하세요. AI는 선택해서 쓰는 초안·평가 도우미입니다.</p></header>
+    <div className="grid md:grid-cols-3 gap-4">
+      <label>소스<select className="field" value={sourceId} onChange={e => switchSource(e.target.value)}>{candidates.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}</select></label>
+      <label>게시할 채널<select className="field" value={platform} onChange={e => { setPlatform(e.target.value as Platform); setDraftId(''); setRec(null); setNotice(''); }}>{(['LinkedIn','Instagram','Threads','X','YouTube Shorts'] as Platform[]).map(p => <option key={p}>{p}</option>)}</select></label>
+      <label>초안·발행 기록<select className="field" value={draft?.id ?? ''} onChange={e => { setDraftId(e.target.value); setRec(null); setNotice(''); }}><option value="" disabled>새 초안을 만드세요</option>{versions.map(d => <option key={d.id} value={d.id}>{d.status === 'Published' ? '발행 기록' : '작업 중'} · {d.content.hook || '제목 없는 초안'}</option>)}</select></label>
     </div>
-  );
+    <details className="panel"><summary className="cursor-pointer font-semibold">소스의 주장과 근거 보기</summary><dl className="space-y-2 mt-4"><dt>핵심 주장</dt><dd>{source.brief?.claim || '아직 정리하지 않았습니다'}</dd><dt>출처·날짜</dt><dd>{source.brief?.author || source.title} · {source.brief?.observedAt || '날짜 미기록'}</dd><dt>직접 인용·관찰</dt><dd className="whitespace-pre-wrap">{source.brief?.excerpt || source.rawNotes}</dd><dt>미확인 사항</dt><dd>{source.brief?.unknowns || '미기록'}</dd></dl><button className="action-secondary mt-4" onClick={() => onNavigate('library', source.id)}>소스 정리하기</button></details>
+    {notice && <p role="status" className="notice">{notice}</p>}
+    {!draft ? <div className="panel space-y-4"><h3 className="text-xl font-semibold">이 소재로 어떤 이야기를 하고 싶나요?</h3><p>직접 작성은 계정과 API 키 없이 시작할 수 있습니다.</p><div className="flex gap-3"><button className="action" disabled={loading} onClick={() => create(false)}>직접 작성</button><button className="action-secondary" disabled={loading} onClick={() => create(true)}>{loading ? '요청 중…' : 'AI로 초안 만들기'}</button></div></div> : <>
+      <div className="flex flex-wrap items-center gap-4"><p>버전 {revisionOf(draft)} · {frozen ? '발행 당시 기록' : draft.workflow?.reviewed ? '최종 검토 완료' : '검토 필요'}</p>{frozen && <button className="action" onClick={fork}>수정본 만들기</button>}</div>
+      <div className="grid xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)] gap-6">
+        <div className="panel space-y-5">
+          <fieldset disabled={frozen} className="space-y-5">
+            <label className="block">도입부<textarea className="field" rows={2} value={draft.content.hook} placeholder="독자가 처음 읽을 한 문장은 무엇인가요?" onChange={e => update(d => editDraft(d, { content: { ...d.content, hook: e.target.value } }))} /></label>
+            <label className="block">본문<textarea className="field" rows={10} value={draft.content.mainPoint} placeholder="직접 겪거나 확인한 사례와 독자에게 도움이 될 내용을 적으세요." onChange={e => update(d => editDraft(d, { content: { ...d.content, mainPoint: e.target.value } }))} /></label>
+            <label className="block">독자의 다음 행동<input className="field" value={draft.content.cta} placeholder="읽고 나서 무엇을 해보면 좋을까요?" onChange={e => update(d => editDraft(d, { content: { ...d.content, cta: e.target.value } }))} /></label>
+            <label className="block">근거로 뒷받침할 핵심 주장<textarea className="field" rows={2} value={draft.content.claim ?? ''} placeholder="자료를 통해 확인할 수 있는 주장 한 가지" onChange={e => update(d => editDraft(d, { content: { ...d.content, claim: e.target.value } }))} /></label>
+            <ProofAttach key={draft.id} draft={draft} proofs={proofs} onRegister={p => setProofs(prev => [p, ...prev])}
+              onAttach={(id, registered) => { const p = registered ?? proofs.find(p => p.id === id); if (p) update(d => editDraft(d, { proof: { proofId: p.id, exists: true, type: p.type, description: p.description } })); }}
+              onDetach={() => update(d => editDraft(d, { proof: { ...d.proof, proofId: undefined, exists: false } }))} />
+            <label className="flex gap-3 items-start"><input type="checkbox" className="mt-1" checked={evidenceVerified(draft, proofs)} disabled={!evidenceFor(draft, proofs) || !draft.content.claim?.trim() || frozen} onChange={e => update(d => verifyEvidence(d, proofs, e.target.checked))} /><span>자료 원문을 직접 확인했고, 위 핵심 주장을 뒷받침함을 확인했습니다.</span></label>
+          </fieldset>
+        </div>
+        <aside className="panel space-y-5">
+          <h3 className="text-xl font-semibold">검토</h3><p className="text-nf-muted">본문·주장·자료를 바꾸면 근거와 최종 검토를 다시 확인합니다.</p>
+          <fieldset disabled={frozen} className="space-y-4"><legend className="font-semibold mb-3">필수 조건</legend>{requiredChecks.map(c => <label className="flex gap-3" key={c.key}><input type="checkbox" checked={draft.brandVoiceGate[c.key]} onChange={e => update(d => editDraft(d, { brandVoiceGate: { ...d.brandVoiceGate, [c.key]: e.target.checked } }))} />{c.label}</label>)}</fieldset>
+          <fieldset disabled={frozen} className="space-y-4"><legend className="font-semibold mb-3">개선 권고 · 통과 조건에는 미포함</legend>{advisoryChecks.map(c => <label className="flex gap-3" key={c.key}><input type="checkbox" checked={draft.brandVoiceGate[c.key]} onChange={e => update(d => editDraft(d, { brandVoiceGate: { ...d.brandVoiceGate, [c.key]: e.target.checked } }))} />{c.label}</label>)}</fieldset>
+          {!frozen && <><button className="action-secondary w-full" disabled={loading} onClick={evaluate}>{loading ? '평가 중…' : 'AI 평가 요청 (선택)'}</button>{validRec && <div className="notice space-y-3"><p>{validRec.rationale}</p><p>AI 추천은 근거 확인·최종 검토를 대신하지 않습니다.</p><button className="action-secondary" onClick={apply}>추천 항목 적용</button></div>}
+          {problems.length ? <div className="notice"><p className="font-semibold">다음 확인이 필요합니다</p><ul className="list-disc pl-5 mt-2 space-y-2">{problems.map(p => <li key={p}>{p}</li>)}</ul></div> : <p className="notice">필수 조건을 충족했습니다. 내용을 최종 확인해 주세요.</p>}
+          <button className="action w-full" disabled={problems.length > 0} onClick={review}>내용·근거 최종 확인하고 리뷰로 이동</button></>}
+          {frozen && <p>발행 기록은 편집되지 않습니다. 수정본에서 새 검토를 진행하세요.</p>}
+        </aside>
+      </div>
+    </>}
+  </div>;
 }
